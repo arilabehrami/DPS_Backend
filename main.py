@@ -6,7 +6,6 @@ from models.user import User
 from routes.auth import router as auth_router
 
 
-# Krijon tabelat ne databaze
 Base.metadata.create_all(bind=engine)
 
 
@@ -17,7 +16,6 @@ app = FastAPI(
 )
 
 
-# Kjo lejon React-in me fol me backend-in
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["http://localhost:5173"],
@@ -27,7 +25,6 @@ app.add_middleware(
 )
 
 
-# Ketu po i lidhim register dhe login me main.py
 app.include_router(auth_router)
 
 
