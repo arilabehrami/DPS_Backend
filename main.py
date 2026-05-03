@@ -4,6 +4,9 @@ from fastapi.middleware.cors import CORSMiddleware
 from database import Base, engine
 from models.user import User
 from routes.auth import router as auth_router
+from models.personality import Personality
+from models.conversation import Conversation
+from models.message import Message
 
 
 Base.metadata.create_all(bind=engine)
