@@ -1,8 +1,8 @@
 from sqlalchemy import Column, Integer, String, DateTime
+from sqlalchemy.orm import relationship
 from datetime import datetime
 
 from database import Base
-
 
 class User(Base):
     __tablename__ = "users"
@@ -12,3 +12,6 @@ class User(Base):
     email = Column(String, unique=True, index=True, nullable=False)
     hashed_password = Column(String, nullable=False)
     created_at = Column(DateTime, default=datetime.utcnow)
+
+    personalities = relationship("Personality", back_populates="user")
+    conversations = relationship("Conversation", back_populates="user")
