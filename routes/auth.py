@@ -8,6 +8,7 @@ from security.auth_security import hash_password, verify_password, create_access
 
 
 router = APIRouter(
+    prefix="/auth",
     tags=["Authentication"]
 )
 
