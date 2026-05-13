@@ -1,4 +1,5 @@
 from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 
 class PersonalityBase(BaseModel):
     name: str
@@ -16,5 +17,4 @@ class PersonalityOut(PersonalityBase):
     id: int
     user_id: int   # shfaq edhe user_id në përgjigje
 
-    class Config:
-        orm_mode = True
+    model_config = ConfigDict(from_attributes=True)

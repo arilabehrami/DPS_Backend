@@ -1,4 +1,4 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 
 class MessageBase(BaseModel):
     content: str
@@ -16,5 +16,4 @@ class MessageUpdate(BaseModel):
 class MessageOut(MessageBase):
     id: int
 
-    class Config:
-        orm_mode = True
+    model_config = ConfigDict(from_attributes=True)
