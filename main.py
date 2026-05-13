@@ -19,7 +19,7 @@ Base.metadata.create_all(bind=engine)
 
 app = FastAPI(
     title="Digital Personality Simulator",
-    description="Backend API for register and login",
+    description="Backend API for authentication, personalities, conversations and AI chat",
     version="1.0.0"
 )
 
