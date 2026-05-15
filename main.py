@@ -12,6 +12,7 @@ from routes.personality import router as personality_router
 from routes.user import router as user_router
 from routes.conversation import router as conversation_router
 from routes.message import router as message_router
+from routes.chat import router as chat_router
 from routes import test
 
 
@@ -37,6 +38,7 @@ app.include_router(user_router)
 app.include_router(test.router, prefix="", tags=["Test"])
 app.include_router(conversation_router)
 app.include_router(message_router)
+app.include_router(chat_router)
 
 @app.get("/")
 def home():

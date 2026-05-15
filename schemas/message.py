@@ -1,19 +1,26 @@
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel
+from datetime import datetime
+
 
 class MessageBase(BaseModel):
-    content: str
-    role: str
     conversation_id: int
+    sender: str
+    content: str
+
 
 class MessageCreate(MessageBase):
     pass
 
+
 class MessageUpdate(BaseModel):
+    sender: str | None = None
     content: str | None = None
-    role: str | None = None
     conversation_id: int | None = None
+
 
 class MessageOut(MessageBase):
     id: int
+    created_at: datetime
 
-    model_config = ConfigDict(from_attributes=True)
+    class Config:
+        from_attributes = True

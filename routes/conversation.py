@@ -1,11 +1,18 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
+
 from database import SessionLocal
-from models import Conversation
-from schemas.conversation import ConversationCreate, ConversationOut, ConversationUpdate
+from models.conversation import Conversation
+from models.message import Message
+from schemas.conversation import ConversationCreate, ConversationOut
+from schemas.message import MessageOut
 
 
-router = APIRouter(prefix="/conversations", tags=["Conversations"])
+router = APIRouter(
+    prefix="/conversations",
+    tags=["Conversations"]
+)
+
 
 def get_db():
     db = SessionLocal()
@@ -14,50 +21,63 @@ def get_db():
     finally:
         db.close()
 
+
+
 @router.post("/", response_model=ConversationOut)
-def create_conversation(conversation: ConversationCreate, db: Session = Depends(get_db)):
-    new_conv = Conversation(
+def create_conversation(
+    conversation: ConversationCreate,
+    db: Session = Depends(get_db)
+):
+    new_conversation = Conversation(
         user_id=conversation.user_id,
         personality_id=conversation.personality_id,
-        title=getattr(conversation, "title", None),
-        status=getattr(conversation, "status", None)
+        title=conversation.title
     )
-    db.add(new_conv)
+
+    db.add(new_conversation)
     db.commit()
-    db.refresh(new_conv)
-    return new_conv
+    db.refresh(new_conversation)
+
+    return new_conversation
 
 
-@router.get("/{conversation_id}", response_model=ConversationOut)
-def get_conversation(conversation_id: int, db: Session = Depends(get_db)):
-    conv = db.query(Conversation).filter(Conversation.id == conversation_id).first()
-    if not conv:
-        raise HTTPException(status_code=404, detail="Conversation not found")
-    return conv
 
-@router.put("/{conversation_id}", response_model=ConversationOut)
-def update_conversation(conversation_id: int, conversation: ConversationUpdate, db: Session = Depends(get_db)):
-    conv = db.query(Conversation).filter(Conversation.id == conversation_id).first()
-    if not conv:
-        raise HTTPException(status_code=404, detail="Conversation not found")
+@router.get("/", response_model=list[ConversationOut])
+def get_user_conversations(
+    user_id: int,
+    db: Session = Depends(get_db)
+):
+    conversations = (
+        db.query(Conversation)
+        .filter(Conversation.user_id == user_id)
+        .all()
+    )
 
-    if conversation.user_id is not None:
-        conv.user_id = conversation.user_id
-    if conversation.personality_id is not None:
-        conv.personality_id = conversation.personality_id
-
-    db.commit()
-    db.refresh(conv)
-    return conv
+    return conversations
 
 
-@router.delete("/{conversation_id}")
-def delete_conversation(conversation_id: int, db: Session = Depends(get_db)):
-    conv = db.query(Conversation).filter(Conversation.id == conversation_id).first()
-    if not conv:
-        raise HTTPException(status_code=404, detail="Conversation not found")
 
-    db.delete(conv)
-    db.commit()
-    return {"detail": "Conversation deleted successfully"}
+@router.get("/{conversation_id}/messages", response_model=list[MessageOut])
+def get_conversation_messages(
+    conversation_id: int,
+    db: Session = Depends(get_db)
+):
+    conversation = (
+        db.query(Conversation)
+        .filter(Conversation.id == conversation_id)
+        .first()
+    )
 
+    if not conversation:
+        raise HTTPException(
+            status_code=404,
+            detail="Conversation not found"
+        )
+
+    messages = (
+        db.query(Message)
+        .filter(Message.conversation_id == conversation_id)
+        .all()
+    )
+
+    return messages
