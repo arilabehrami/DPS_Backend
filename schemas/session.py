@@ -1,17 +1,22 @@
-from pydantic import BaseModel
+from typing import Optional
 from datetime import datetime
+from pydantic import BaseModel
 
 
 class SessionCreate(BaseModel):
-    user_id: int
-    token: str
+    user_id: Optional[int] = None
+    token: Optional[str] = None
 
 
-class SessionOut(BaseModel):
+class SessionUpdate(BaseModel):
+    token: Optional[str] = None
+
+
+class SessionResponse(BaseModel):
     id: int
-    user_id: int
-    token: str
-    created_at: datetime
+    user_id: Optional[int] = None
+    token: Optional[str] = None
+    created_at: Optional[datetime] = None
 
     class Config:
         from_attributes = True

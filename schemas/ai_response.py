@@ -1,15 +1,26 @@
+from typing import Optional
+from datetime import datetime
 from pydantic import BaseModel
 
 
 class AIResponseCreate(BaseModel):
-    conversation_id: int
-    response: str
+    message_id: Optional[int] = None
+    response_text: str
+    model_used: Optional[str] = None
 
 
-class AIResponseOut(BaseModel):
+class AIResponseUpdate(BaseModel):
+    message_id: Optional[int] = None
+    response_text: Optional[str] = None
+    model_used: Optional[str] = None
+
+
+class AIResponseResponse(BaseModel):
     id: int
-    conversation_id: int
-    response: str
+    message_id: Optional[int] = None
+    response_text: str
+    model_used: Optional[str] = None
+    created_at: Optional[datetime] = None
 
     class Config:
         from_attributes = True

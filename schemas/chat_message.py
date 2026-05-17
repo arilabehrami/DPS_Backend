@@ -1,19 +1,25 @@
-from pydantic import BaseModel
+from typing import Optional
 from datetime import datetime
+from pydantic import BaseModel
 
 
 class ChatMessageCreate(BaseModel):
-    conversation_id: int
-    sender: str
-    content: str
+    content: Optional[str] = None
+    sender: Optional[str] = None
+    conversation_id: Optional[int] = None
+
+
+class ChatMessageUpdate(BaseModel):
+    content: Optional[str] = None
+    sender: Optional[str] = None
 
 
 class ChatMessageResponse(BaseModel):
     id: int
-    conversation_id: int
-    sender: str
-    content: str
-    created_at: datetime
+    content: Optional[str] = None
+    sender: Optional[str] = None
+    conversation_id: Optional[int] = None
+    created_at: Optional[datetime] = None
 
     class Config:
         from_attributes = True

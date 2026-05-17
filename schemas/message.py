@@ -1,17 +1,25 @@
+from typing import Optional
 from pydantic import BaseModel
 
 
-class MessageBase(BaseModel):
-    content: str
+class MessageCreate(BaseModel):
+    workspace_id: int
     conversation_id: int
+    sender: Optional[str] = None
+    content: Optional[str] = None
 
 
-class MessageCreate(MessageBase):
-    pass
+class MessageUpdate(BaseModel):
+    sender: Optional[str] = None
+    content: Optional[str] = None
 
 
-class MessageResponse(MessageBase):
+class MessageResponse(BaseModel):
     id: int
+    workspace_id: int
+    conversation_id: int
+    sender: Optional[str] = None
+    content: Optional[str] = None
 
     class Config:
         from_attributes = True

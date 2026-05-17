@@ -1,15 +1,23 @@
+from typing import Optional
 from pydantic import BaseModel
 
 
 class PersonaTraitCreate(BaseModel):
-    personality_id: int
+    persona_id: Optional[int] = None
     trait_name: str
+    value: Optional[str] = None
 
 
-class PersonaTraitOut(BaseModel):
+class PersonaTraitUpdate(BaseModel):
+    trait_name: Optional[str] = None
+    value: Optional[str] = None
+
+
+class PersonaTraitResponse(BaseModel):
     id: int
-    personality_id: int
+    persona_id: Optional[int] = None
     trait_name: str
+    value: Optional[str] = None
 
     class Config:
         from_attributes = True
