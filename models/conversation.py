@@ -1,6 +1,5 @@
-from sqlalchemy import Column, Integer, String, ForeignKey, DateTime
+from sqlalchemy import Column, Integer, String, ForeignKey
 from sqlalchemy.orm import relationship
-from datetime import datetime
 
 from database import Base
 
@@ -10,22 +9,33 @@ class Conversation(Base):
 
     id = Column(Integer, primary_key=True, index=True)
 
-    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
-
-    personality_id = Column(
+    workspace_id = Column(
         Integer,
-        ForeignKey("personalities.id"),
+        ForeignKey("workspaces.id"),
         nullable=False
     )
 
-    title = Column(String, nullable=True)
+    user_id = Column(
+        Integer,
+        ForeignKey("users.id"),
+        nullable=False
+    )
 
-    created_at = Column(DateTime, default=datetime.utcnow)
+    persona_id = Column(
+        Integer,
+        ForeignKey("personas.id"),
+        nullable=False
+    )
 
-    user = relationship("User", back_populates="conversations")
+    title = Column(String)
 
-    personality = relationship(
-        "Personality",
+    user = relationship(
+        "User",
+        back_populates="conversations"
+    )
+
+    persona = relationship(
+        "Persona",
         back_populates="conversations"
     )
 
