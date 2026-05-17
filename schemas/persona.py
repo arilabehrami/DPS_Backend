@@ -1,17 +1,17 @@
 from pydantic import BaseModel
 
 
-class PersonalityBase(BaseModel):
+class PersonaBase(BaseModel):
     name: str
     description: str | None = None
     user_id: int
 
 
-class PersonalityCreate(PersonalityBase):
+class PersonaCreate(PersonaBase):
     pass
 
 
-class PersonalityResponse(PersonalityBase):
+class PersonaResponse(PersonaBase):
     id: int
 
     class Config:
