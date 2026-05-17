@@ -1,17 +1,17 @@
 from pydantic import BaseModel
 
 
-class WorkspaceBase(BaseModel):
+class WorkspaceCreate(BaseModel):
     name: str
-    description: str | None = None
 
 
-class WorkspaceCreate(WorkspaceBase):
-    pass
+class WorkspaceUpdate(BaseModel):
+    name: str
 
 
-class WorkspaceResponse(WorkspaceBase):
+class WorkspaceResponse(BaseModel):
     id: int
+    name: str
 
     class Config:
         from_attributes = True

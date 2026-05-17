@@ -1,16 +1,18 @@
+from typing import Optional
 from pydantic import BaseModel
 
 
-class RoleBase(BaseModel):
-    name: str
+class RoleCreate(BaseModel):
+    name: Optional[str] = None
 
 
-class RoleCreate(RoleBase):
-    pass
+class RoleUpdate(BaseModel):
+    name: Optional[str] = None
 
 
-class RoleResponse(RoleBase):
+class RoleResponse(BaseModel):
     id: int
+    name: Optional[str] = None
 
     class Config:
         from_attributes = True

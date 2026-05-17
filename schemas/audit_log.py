@@ -1,17 +1,20 @@
-from pydantic import BaseModel
+from typing import Optional
 from datetime import datetime
+from pydantic import BaseModel
 
 
 class AuditLogCreate(BaseModel):
-    user_id: int
-    action: str
+    action: Optional[str] = None
+
+
+class AuditLogUpdate(BaseModel):
+    action: Optional[str] = None
 
 
 class AuditLogResponse(BaseModel):
     id: int
-    user_id: int
-    action: str
-    created_at: datetime
+    action: Optional[str] = None
+    timestamp: Optional[datetime] = None
 
     class Config:
         from_attributes = True

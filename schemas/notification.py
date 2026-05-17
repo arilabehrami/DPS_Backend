@@ -1,16 +1,23 @@
+from typing import Optional
 from pydantic import BaseModel
 
 
 class NotificationCreate(BaseModel):
-    user_id: int
-    title: str
+    user_id: Optional[int] = None
+    title: Optional[str] = None
+    is_read: Optional[bool] = None
 
 
-class NotificationOut(BaseModel):
+class NotificationUpdate(BaseModel):
+    title: Optional[str] = None
+    is_read: Optional[bool] = None
+
+
+class NotificationResponse(BaseModel):
     id: int
-    user_id: int
-    title: str
-    is_read: bool
+    user_id: Optional[int] = None
+    title: Optional[str] = None
+    is_read: Optional[bool] = None
 
     class Config:
         from_attributes = True

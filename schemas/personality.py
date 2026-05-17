@@ -1,18 +1,25 @@
+from typing import Optional
 from pydantic import BaseModel
 
 
-class PersonalityBase(BaseModel):
+class PersonalityCreate(BaseModel):
+    workspace_id: int
     name: str
-    description: str | None = None
-    user_id: int
+    description: Optional[str] = None
+    user_id: Optional[int] = None
 
 
-class PersonalityCreate(PersonalityBase):
-    pass
+class PersonalityUpdate(BaseModel):
+    name: Optional[str] = None
+    description: Optional[str] = None
 
 
-class PersonalityResponse(PersonalityBase):
+class PersonalityResponse(BaseModel):
     id: int
+    workspace_id: int
+    name: str
+    description: Optional[str] = None
+    user_id: Optional[int] = None
 
     class Config:
         from_attributes = True
