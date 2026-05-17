@@ -1,46 +1,77 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
+
 from database import get_db
 from models.personality import Personality
-from schemas.personality import PersonalityCreate, PersonalityUpdate, PersonalityOut
+from schemas.personality import (
+    PersonalityCreate,
+    PersonalityResponse
+)
 
-router = APIRouter(prefix="/personalities", tags=["Personality"])
+router = APIRouter(
+    prefix="/personalities",
+    tags=["Personalities"]
+)
 
-@router.post("/", response_model=PersonalityOut)
-def create_personality(personality: PersonalityCreate, db: Session = Depends(get_db)):
-    new_p = Personality(**personality.dict())
-    db.add(new_p)
+
+@router.post("/", response_model=PersonalityResponse)
+def create_personality(
+    personality_data: PersonalityCreate,
+    db: Session = Depends(get_db)
+):
+    personality = Personality(**personality_data.model_dump())
+
+    db.add(personality)
     db.commit()
-    db.refresh(new_p)
-    return new_p
+    db.refresh(personality)
 
-@router.get("/", response_model=list[PersonalityOut])
-def get_all_personalities(db: Session = Depends(get_db)):
+    return personality
+
+
+@router.get("/", response_model=list[PersonalityResponse])
+def get_personalities(db: Session = Depends(get_db)):
     return db.query(Personality).all()
 
-@router.get("/{id}", response_model=PersonalityOut)
-def get_personality(id: int, db: Session = Depends(get_db)):
-    p = db.query(Personality).filter(Personality.id == id).first()
-    if not p:
-        raise HTTPException(status_code=404, detail="Not found")
-    return p
 
-@router.put("/{id}", response_model=PersonalityOut)
-def update_personality(id: int, personality: PersonalityUpdate, db: Session = Depends(get_db)):
-    p = db.query(Personality).filter(Personality.id == id).first()
-    if not p:
-        raise HTTPException(status_code=404, detail="Not found")
-    for key, value in personality.dict(exclude_unset=True).items():
-        setattr(p, key, value)
-    db.commit()
-    db.refresh(p)
-    return p
+@router.get("/{personality_id}", response_model=PersonalityResponse)
+def get_personality(personality_id: int, db: Session = Depends(get_db)):
+    personality = db.query(Personality).filter(
+        Personality.id == personality_id
+    ).first()
 
-@router.delete("/{id}")
-def delete_personality(id: int, db: Session = Depends(get_db)):
-    p = db.query(Personality).filter(Personality.id == id).first()
-    if not p:
-        raise HTTPException(status_code=404, detail="Not found")
-    db.delete(p)
+    if not personality:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Personality not found"
+        )
+
+    return personality
+
+
+@router.delete("/{personality_id}")
+def delete_personality(personality_id: int, db: Session = Depends(get_db)):
+    personality = db.query(Personality).filter(
+        Personality.id == personality_id
+    ).first()
+
+    if not personality:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Personality not found"
+        )
+
+    db.delete(personality)
     db.commit()
-    return {"message": "Deleted successfully"}
+
+    return {
+        "message": "Personality deleted"
+    }
+    
+@router.get("/search/")
+def search_personality(
+    name: str,
+    db: Session = Depends(get_db)
+):
+    return db.query(Personality).filter(
+        Personality.name.ilike(f"%{name}%")
+    ).all()

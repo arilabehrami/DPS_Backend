@@ -1,12 +1,12 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 
-from database import SessionLocal
+from database import get_db
 from models.conversation import Conversation
-from models.message import Message
-from schemas.conversation import ConversationCreate, ConversationOut
-from schemas.message import MessageOut
-
+from schemas.conversation import (
+    ConversationCreate,
+    ConversationResponse
+)
 
 router = APIRouter(
     prefix="/conversations",
@@ -14,70 +14,20 @@ router = APIRouter(
 )
 
 
-def get_db():
-    db = SessionLocal()
-    try:
-        yield db
-    finally:
-        db.close()
-
-
-
-@router.post("/", response_model=ConversationOut)
+@router.post("/", response_model=ConversationResponse)
 def create_conversation(
-    conversation: ConversationCreate,
+    conversation_data: ConversationCreate,
     db: Session = Depends(get_db)
 ):
-    new_conversation = Conversation(
-        user_id=conversation.user_id,
-        personality_id=conversation.personality_id,
-        title=conversation.title
-    )
+    conversation = Conversation(**conversation_data.model_dump())
 
-    db.add(new_conversation)
+    db.add(conversation)
     db.commit()
-    db.refresh(new_conversation)
+    db.refresh(conversation)
 
-    return new_conversation
-
-
-
-@router.get("/", response_model=list[ConversationOut])
-def get_user_conversations(
-    user_id: int,
-    db: Session = Depends(get_db)
-):
-    conversations = (
-        db.query(Conversation)
-        .filter(Conversation.user_id == user_id)
-        .all()
-    )
-
-    return conversations
+    return conversation
 
 
-
-@router.get("/{conversation_id}/messages", response_model=list[MessageOut])
-def get_conversation_messages(
-    conversation_id: int,
-    db: Session = Depends(get_db)
-):
-    conversation = (
-        db.query(Conversation)
-        .filter(Conversation.id == conversation_id)
-        .first()
-    )
-
-    if not conversation:
-        raise HTTPException(
-            status_code=404,
-            detail="Conversation not found"
-        )
-
-    messages = (
-        db.query(Message)
-        .filter(Message.conversation_id == conversation_id)
-        .all()
-    )
-
-    return messages
+@router.get("/", response_model=list[ConversationResponse])
+def get_conversations(db: Session = Depends(get_db)):
+    return db.query(Conversation).all()
