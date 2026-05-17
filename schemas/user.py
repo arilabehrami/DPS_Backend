@@ -1,25 +1,30 @@
-from pydantic import BaseModel, EmailStr, ConfigDict
+from pydantic import BaseModel
 
 
-class UserRegister(BaseModel):
-    full_name: str
-    email: EmailStr
+# =========================
+# CREATE USER
+# =========================
+class UserCreate(BaseModel):
+    username: str
+    email: str
     password: str
 
 
+# =========================
+# LOGIN USER
+# =========================
 class UserLogin(BaseModel):
-    email: EmailStr
+    email: str
     password: str
 
 
+# =========================
+# RESPONSE USER (FIX)
+# =========================
 class UserResponse(BaseModel):
     id: int
-    full_name: str
-    email: EmailStr
+    username: str
+    email: str
 
-    model_config = ConfigDict(from_attributes=True)
-
-
-class TokenResponse(BaseModel):
-    access_token: str
-    token_type: str
+    class Config:
+        from_attributes = True
