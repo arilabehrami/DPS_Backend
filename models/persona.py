@@ -4,8 +4,8 @@ from sqlalchemy.orm import relationship
 from database import Base
 
 
-class Message(Base):
-    __tablename__ = "messages"
+class Persona(Base):
+    __tablename__ = "personas"
 
     id = Column(Integer, primary_key=True, index=True)
 
@@ -15,17 +15,22 @@ class Message(Base):
         nullable=False
     )
 
-    conversation_id = Column(
+    user_id = Column(
         Integer,
-        ForeignKey("conversations.id"),
+        ForeignKey("users.id"),
         nullable=False
     )
 
-    sender = Column(String)
+    name = Column(String)
 
-    content = Column(String)
+    description = Column(String)
 
-    conversation = relationship(
+    user = relationship(
+        "User",
+        back_populates="personas"
+    )
+
+    conversations = relationship(
         "Conversation",
-        back_populates="messages"
+        back_populates="persona"
     )
