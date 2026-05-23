@@ -1,10 +1,13 @@
 from sqlalchemy.orm import Session
 from models.user import User
 from schemas.user import UserCreate, UserUpdate
+from security.auth_security import hash_password
 
 
 def create_user(db: Session, data: UserCreate):
-    user = User(**data.dict(exclude_unset=True))
+    values = data.dict(exclude_unset=True)
+    password = values.pop("password")
+    user = User(**values, hashed_password=hash_password(password))
     db.add(user)
     db.commit()
     db.refresh(user)
@@ -41,7 +44,11 @@ def update_user(db: Session, user_id: int, data: UserUpdate):
     if not user:
         return None
 
-    for field, value in data.dict(exclude_unset=True).items():
+    values = data.dict(exclude_unset=True)
+    if "password" in values:
+        values["hashed_password"] = hash_password(values.pop("password"))
+
+    for field, value in values.items():
         setattr(user, field, value)
 
     db.commit()

@@ -1,7 +1,10 @@
+import logging
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from database import Base, engine
+from middleware.logging_middleware import LoggingMiddleware
 
 
 from models.ai_response import AIResponse
@@ -27,8 +30,10 @@ from models.workspace import Workspace
 
 
 from routes.ai_response import router as ai_response_router
+from routes.auth import router as auth_router
 from routes.api_key import router as api_key_router
 from routes.audit_log import router as audit_log_router
+from routes.chat import router as chat_router
 from routes.chat_message import router as chat_message_router
 from routes.conversation import router as conversation_router
 from routes.event_log import router as event_log_router
@@ -50,6 +55,11 @@ from routes.workspace import router as workspace_router
 
 Base.metadata.create_all(bind=engine)
 
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s | %(levelname)s | %(name)s | %(message)s",
+)
+
 
 app = FastAPI(
     title="Digital Personality Simulator API",
@@ -57,6 +67,8 @@ app = FastAPI(
     version="1.0.0"
 )
 
+
+app.add_middleware(LoggingMiddleware)
 
 
 app.add_middleware(
@@ -83,8 +95,10 @@ def root():
 
 
 app.include_router(ai_response_router)
+app.include_router(auth_router)
 app.include_router(api_key_router)
 app.include_router(audit_log_router)
+app.include_router(chat_router)
 app.include_router(chat_message_router)
 app.include_router(conversation_router)
 app.include_router(event_log_router)
