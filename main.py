@@ -6,7 +6,6 @@ from fastapi.middleware.cors import CORSMiddleware
 from database import Base, engine
 from middleware.logging_middleware import LoggingMiddleware
 
-
 from models.ai_response import AIResponse
 from models.api_key import APIKey
 from models.audit_log import AuditLog
@@ -28,7 +27,6 @@ from models.settings import Settings
 from models.user import User
 from models.workspace import Workspace
 
-
 from routes.ai_response import router as ai_response_router
 from routes.auth import router as auth_router
 from routes.api_key import router as api_key_router
@@ -41,6 +39,7 @@ from routes.feedback import router as feedback_router
 from routes.interaction_stats import router as interaction_stats_router
 from routes.message import router as message_router
 from routes.notification import router as notification_router
+from routes.openai_ai import router as openai_ai_router
 from routes.persona_history import router as persona_history_router
 from routes.persona_trait import router as persona_trait_router
 from routes.persona import router as persona_router
@@ -60,16 +59,13 @@ logging.basicConfig(
     format="%(asctime)s | %(levelname)s | %(name)s | %(message)s",
 )
 
-
 app = FastAPI(
     title="Digital Personality Simulator API",
     description="Backend API for Digital Personality Simulator project",
-    version="1.0.0"
+    version="1.0.0",
 )
 
-
 app.add_middleware(LoggingMiddleware)
-
 
 app.add_middleware(
     CORSMiddleware,
@@ -77,7 +73,7 @@ app.add_middleware(
         "http://localhost:5173",
         "http://127.0.0.1:5173",
         "http://localhost:3000",
-        "http://127.0.0.1:3000"
+        "http://127.0.0.1:3000",
     ],
     allow_credentials=True,
     allow_methods=["*"],
@@ -85,13 +81,11 @@ app.add_middleware(
 )
 
 
-
 @app.get("/")
 def root():
     return {
         "message": "Digital Personality Simulator API is running successfully"
     }
-
 
 
 app.include_router(ai_response_router)
@@ -106,6 +100,7 @@ app.include_router(feedback_router)
 app.include_router(interaction_stats_router)
 app.include_router(message_router)
 app.include_router(notification_router)
+app.include_router(openai_ai_router)
 app.include_router(persona_history_router)
 app.include_router(persona_trait_router)
 app.include_router(persona_router)
