@@ -7,7 +7,7 @@ class UserCreate(BaseModel):
     role_id: int
     username: str
     email: str
-    hashed_password: str
+    password: str
 
 
 class UserUpdate(BaseModel):
@@ -15,7 +15,7 @@ class UserUpdate(BaseModel):
     role_id: Optional[int] = None
     username: Optional[str] = None
     email: Optional[str] = None
-    hashed_password: Optional[str] = None
+    password: Optional[str] = None
 
 
 class UserResponse(BaseModel):
@@ -24,7 +24,6 @@ class UserResponse(BaseModel):
     role_id: int
     username: str
     email: str
-    hashed_password: str
 
     class Config:
         from_attributes = True

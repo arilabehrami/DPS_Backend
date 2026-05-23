@@ -2,6 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
 from database import get_db
+from security.auth_security import require_roles
 from schemas.audit_log import AuditLogCreate, AuditLogUpdate, AuditLogResponse
 from services.audit_log import (
     create_audit_log,
@@ -12,7 +13,11 @@ from services.audit_log import (
     delete_audit_log
 )
 
-router = APIRouter(prefix="/audit-logs", tags=["Audit Logs"])
+router = APIRouter(
+    prefix="/audit-logs",
+    tags=["Audit Logs"],
+    dependencies=[Depends(require_roles("admin"))],
+)
 
 
 @router.post("/", response_model=AuditLogResponse)
