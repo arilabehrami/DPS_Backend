@@ -2,6 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
 from database import get_db
+from security.auth_security import require_roles
 from schemas.role import RoleCreate, RoleUpdate, RoleResponse
 from services.role import (
     create_role,
@@ -11,7 +12,11 @@ from services.role import (
     delete_role
 )
 
-router = APIRouter(prefix="/roles", tags=["Roles"])
+router = APIRouter(
+    prefix="/roles",
+    tags=["Roles"],
+    dependencies=[Depends(require_roles("admin"))],
+)
 
 
 @router.post("/", response_model=RoleResponse)

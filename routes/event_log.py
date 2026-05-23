@@ -2,6 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
 from database import get_db
+from security.auth_security import require_roles
 from schemas.event_log import EventLogCreate, EventLogUpdate, EventLogResponse
 from services.event_log import (
     create_event_log,
@@ -12,7 +13,11 @@ from services.event_log import (
     delete_event_log
 )
 
-router = APIRouter(prefix="/event-logs", tags=["Event Logs"])
+router = APIRouter(
+    prefix="/event-logs",
+    tags=["Event Logs"],
+    dependencies=[Depends(require_roles("admin"))],
+)
 
 
 @router.post("/", response_model=EventLogResponse)
