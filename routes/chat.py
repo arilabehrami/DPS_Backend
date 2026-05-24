@@ -31,6 +31,28 @@ class ChatGenerateResponse(BaseModel):
     message: str
 
 
+def ensure_default_persona(db: Session, current_user) -> Persona:
+    persona = (
+        db.query(Persona)
+        .filter(Persona.workspace_id == current_user.workspace_id)
+        .order_by(Persona.id.asc())
+        .first()
+    )
+    if persona:
+        return persona
+
+    persona = Persona(
+        name="Aura",
+        description="Friendly assistant persona for chatting and guidance.",
+        workspace_id=current_user.workspace_id,
+        user_id=current_user.id,
+    )
+    db.add(persona)
+    db.commit()
+    db.refresh(persona)
+    return persona
+
+
 def get_or_create_personality(
     db: Session,
     persona: Persona,
@@ -80,7 +102,8 @@ def generate_chat_response(
         .first()
     )
     if not persona:
-        raise HTTPException(status_code=404, detail="Persona not found")
+        # Fallback for frontend defaults (persona_id=1) and empty workspaces.
+        persona = ensure_default_persona(db, current_user)
 
     personality = get_or_create_personality(
         db,
