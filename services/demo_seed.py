@@ -1,6 +1,7 @@
 import logging
 import os
 
+from sqlalchemy import or_
 from sqlalchemy.orm import Session
 
 from models.conversation import Conversation
@@ -40,7 +41,11 @@ def seed_demo_data(db: Session) -> None:
         db.commit()
         db.refresh(user_role)
 
-    admin_user = db.query(User).filter(User.email == "admin@dps.com").first()
+    admin_user = (
+        db.query(User)
+        .filter(or_(User.email == "admin@dps.com", User.username == "admin"))
+        .first()
+    )
     if not admin_user:
         admin_user = User(
             workspace_id=workspace.id,
@@ -50,6 +55,14 @@ def seed_demo_data(db: Session) -> None:
             hashed_password=hash_password("admin123"),
         )
         db.add(admin_user)
+        db.commit()
+        db.refresh(admin_user)
+    else:
+        admin_user.workspace_id = workspace.id
+        admin_user.role_id = admin_role.id
+        admin_user.username = "admin"
+        admin_user.email = "admin@dps.com"
+        admin_user.hashed_password = hash_password("admin123")
         db.commit()
         db.refresh(admin_user)
 

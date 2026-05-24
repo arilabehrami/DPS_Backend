@@ -30,7 +30,7 @@ def generate_with_ollama(prompt: str, model: str | None = None) -> tuple[str, st
         "stream": False,
         "options": {
             "temperature": 0.2,
-            "num_predict": 260,
+            "num_predict": 100,
         },
     }
 
