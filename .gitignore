@@ -1,10 +1,22 @@
+# Virtual environments
 venv/
 .venv/
-.env
+env/
+ENV/
+
+# Python cache
 __pycache__/
 *.pyc
+*.pyo
+*.pyd
+
+# Environment variables
+.env
+
+# Database local
+*.db
+dps.db
+
+# IDE
 .vscode/
 .idea/
-dps.db
-venv_local/
-database.py
