@@ -4,6 +4,7 @@ sqlalchemy
 psycopg2-binary
 python-dotenv
 passlib[bcrypt]
+bcrypt<5
 python-jose[cryptography]
 pydantic[email]
 redis

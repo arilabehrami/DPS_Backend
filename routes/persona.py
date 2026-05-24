@@ -1,4 +1,7 @@
-from fastapi import APIRouter, Depends, HTTPException
+from typing import Optional
+
+from fastapi import APIRouter, Depends, HTTPException, Query
+from sqlalchemy import or_
 from sqlalchemy.orm import Session
 
 from database import get_db
@@ -40,18 +43,38 @@ def create_persona_endpoint(
 
 @router.get("/", response_model=list[PersonaResponse])
 def get_personas_endpoint(
-    skip: int = 0,
-    limit: int = 100,
+    search: Optional[str] = Query(default=None, description="Search personas by name or description"),
+    page: Optional[int] = Query(default=None, ge=1, description="Frontend-friendly page number"),
+    page_size: Optional[int] = Query(default=None, ge=1, le=100, description="Frontend-friendly page size"),
+    skip: int = Query(default=0, ge=0),
+    limit: int = Query(default=100, ge=1, le=100),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
+    effective_limit = page_size or limit
+    effective_skip = ((page - 1) * effective_limit) if page else skip
+    normalized_search = search.strip() if search else None
+
+    def fetch_personas():
+        query = db.query(Persona).filter(Persona.workspace_id == current_user.workspace_id)
+
+        if normalized_search:
+            pattern = f"%{normalized_search}%"
+            query = query.filter(
+                or_(
+                    Persona.name.ilike(pattern),
+                    Persona.description.ilike(pattern),
+                )
+            )
+
+        return query.offset(effective_skip).limit(effective_limit).all()
+
     return get_or_set_list_cache(
-        f"personas:workspace:{current_user.workspace_id}:list:skip={skip}:limit={limit}",
-        lambda: db.query(Persona)
-        .filter(Persona.workspace_id == current_user.workspace_id)
-        .offset(skip)
-        .limit(limit)
-        .all(),
+        "personas:"
+        f"workspace:{current_user.workspace_id}:"
+        f"search:{normalized_search or ''}:"
+        f"skip:{effective_skip}:limit:{effective_limit}",
+        fetch_personas,
         PersonaResponse,
     )
 

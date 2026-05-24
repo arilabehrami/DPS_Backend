@@ -20,6 +20,10 @@ class PersonaResponse(BaseModel):
     user_id: int
     name: Optional[str] = None
     description: Optional[str] = None
+    email: Optional[str] = None
+    department: Optional[str] = None
+    role: Optional[str] = "persona"
+    status: Optional[str] = "active"
 
     class Config:
         from_attributes = True
