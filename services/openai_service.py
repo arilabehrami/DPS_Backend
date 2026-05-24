@@ -15,14 +15,17 @@ OPENAI_MODEL = os.getenv("OPENAI_MODEL", "gpt-4o-mini")
 if not OPENAI_API_KEY:
     logger.warning("OPENAI_API_KEY is missing")
 
-client = OpenAI(api_key=OPENAI_API_KEY)
 
-
-def chat_with_openai(message: str, model: str | None = None) -> str:
+def get_openai_client() -> OpenAI:
     if not OPENAI_API_KEY:
         raise HTTPException(status_code=500, detail="OPENAI_API_KEY is missing")
 
+    return OpenAI(api_key=OPENAI_API_KEY)
+
+
+def chat_with_openai(message: str, model: str | None = None) -> str:
     try:
+        client = get_openai_client()
         response = client.chat.completions.create(
             model=model or OPENAI_MODEL,
             messages=[
@@ -48,10 +51,8 @@ def chat_with_openai(message: str, model: str | None = None) -> str:
 
 
 def analyze_text_with_openai(text: str, model: str | None = None) -> str:
-    if not OPENAI_API_KEY:
-        raise HTTPException(status_code=500, detail="OPENAI_API_KEY is missing")
-
     try:
+        client = get_openai_client()
         response = client.chat.completions.create(
             model=model or OPENAI_MODEL,
             messages=[

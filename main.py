@@ -3,8 +3,9 @@ import logging
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from database import Base, engine
+from database import Base, SessionLocal, engine
 from middleware.logging_middleware import LoggingMiddleware
+from services.demo_seed import seed_demo_data
 
 from models.ai_response import AIResponse
 from models.api_key import APIKey
@@ -53,6 +54,9 @@ from routes.workspace import router as workspace_router
 
 
 Base.metadata.create_all(bind=engine)
+
+with SessionLocal() as db:
+    seed_demo_data(db)
 
 logging.basicConfig(
     level=logging.INFO,
