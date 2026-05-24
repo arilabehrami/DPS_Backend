@@ -1,27 +1,20 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 
 from database import get_db
-from models.message import Message
-from models.user import User
-from security.auth_security import get_current_user
-from security.tenant import ensure_conversation_access, ensure_workspace_access
 from schemas.message import MessageCreate, MessageUpdate, MessageResponse
-from services.cache_service import get_or_set_list_cache, invalidate_cache_prefix
 from services.message import (
     create_message,
-    get_messages,
     get_message_by_id,
-    get_messages_by_conversation_id,
-    get_messages_by_workspace_id,
+    get_messages,
     update_message,
-    delete_message
+    delete_message,
 )
+from routes.dependencies import require_roles
 
 router = APIRouter(
     prefix="/messages",
     tags=["Messages"],
-    dependencies=[Depends(get_current_user)],
 )
 
 
@@ -29,81 +22,31 @@ router = APIRouter(
 def create_message_endpoint(
     data: MessageCreate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user=Depends(require_roles("admin")),
 ):
-    ensure_workspace_access(data.workspace_id, current_user)
-    ensure_conversation_access(db, data.conversation_id, current_user)
-    message = create_message(db, data)
-    invalidate_cache_prefix("messages:")
-    return message
+    return create_message(db, data)
 
 
 @router.get("/", response_model=list[MessageResponse])
-def get_messages_endpoint(
-    skip: int = 0,
-    limit: int = 100,
+def list_messages_endpoint(
+    skip: int = Query(0, ge=0),
+    limit: int = Query(100, ge=1, le=500),
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user=Depends(require_roles("admin", "user")),
 ):
-    return get_or_set_list_cache(
-        f"messages:workspace:{current_user.workspace_id}:list:skip={skip}:limit={limit}",
-        lambda: db.query(Message)
-        .filter(Message.workspace_id == current_user.workspace_id)
-        .offset(skip)
-        .limit(limit)
-        .all(),
-        MessageResponse,
-    )
+    return get_messages(db, skip=skip, limit=limit)
 
 
 @router.get("/{message_id}", response_model=MessageResponse)
 def get_message_endpoint(
     message_id: int,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user=Depends(require_roles("admin", "user")),
 ):
-    message = (
-        db.query(Message)
-        .filter(Message.id == message_id)
-        .filter(Message.workspace_id == current_user.workspace_id)
-        .first()
-    )
-
-    if not message:
+    db_obj = get_message_by_id(db, message_id)
+    if not db_obj:
         raise HTTPException(status_code=404, detail="Message not found")
-
-    return message
-
-
-@router.get("/conversation/{conversation_id}", response_model=list[MessageResponse])
-def get_messages_by_conversation_endpoint(
-    conversation_id: int,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
-):
-    ensure_conversation_access(db, conversation_id, current_user)
-    return get_or_set_list_cache(
-        f"messages:workspace:{current_user.workspace_id}:conversation:{conversation_id}",
-        lambda: db.query(Message)
-        .filter(Message.conversation_id == conversation_id)
-        .filter(Message.workspace_id == current_user.workspace_id)
-        .all(),
-        MessageResponse,
-    )
-
-
-@router.get("/workspace/{workspace_id}", response_model=list[MessageResponse])
-def get_messages_by_workspace_endpoint(
-    workspace_id: int,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
-):
-    ensure_workspace_access(workspace_id, current_user)
-    return get_or_set_list_cache(
-        f"messages:workspace:{current_user.workspace_id}",
-        lambda: get_messages_by_workspace_id(db, workspace_id),
-        MessageResponse,
-    )
+    return db_obj
 
 
 @router.put("/{message_id}", response_model=MessageResponse)
@@ -111,37 +54,21 @@ def update_message_endpoint(
     message_id: int,
     data: MessageUpdate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user=Depends(require_roles("admin")),
 ):
-    message = get_message_by_id(db, message_id)
-    if not message:
+    db_obj = update_message(db, message_id, data)
+    if not db_obj:
         raise HTTPException(status_code=404, detail="Message not found")
-
-    ensure_workspace_access(message.workspace_id, current_user)
-    message = update_message(db, message_id, data)
-
-    if not message:
-        raise HTTPException(status_code=404, detail="Message not found")
-
-    invalidate_cache_prefix("messages:")
-    return message
+    return db_obj
 
 
 @router.delete("/{message_id}")
 def delete_message_endpoint(
     message_id: int,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user=Depends(require_roles("admin")),
 ):
-    message = get_message_by_id(db, message_id)
-    if not message:
+    deleted = delete_message(db, message_id)
+    if not deleted:
         raise HTTPException(status_code=404, detail="Message not found")
-
-    ensure_workspace_access(message.workspace_id, current_user)
-    message = delete_message(db, message_id)
-
-    if not message:
-        raise HTTPException(status_code=404, detail="Message not found")
-
-    invalidate_cache_prefix("messages:")
     return {"message": "Message deleted successfully"}

@@ -3,58 +3,41 @@ from models.notification import Notification
 from schemas.notification import NotificationCreate, NotificationUpdate
 
 
-def create_notification(db: Session, data: NotificationCreate):
-    notification = Notification(**data.dict(exclude_unset=True))
-    db.add(notification)
+def create_notification(db: Session, data: NotificationCreate) -> Notification:
+    db_obj = Notification(**data.model_dump())
+    db.add(db_obj)
     db.commit()
-    db.refresh(notification)
-    return notification
+    db.refresh(db_obj)
+    return db_obj
 
 
-def get_notifications(db: Session, skip: int = 0, limit: int = 100):
-    return db.query(Notification).offset(skip).limit(limit).all()
-
-
-def get_notification_by_id(db: Session, notification_id: int):
+def get_notification_by_id(db: Session, notification_id: int) -> Notification | None:
     return db.query(Notification).filter(Notification.id == notification_id).first()
 
 
-def get_notifications_by_user_id(db: Session, user_id: int):
-    return db.query(Notification).filter(Notification.user_id == user_id).all()
+def get_notifications(db: Session, skip: int = 0, limit: int = 100) -> list[Notification]:
+    return db.query(Notification).offset(skip).limit(limit).all()
 
 
-def mark_notification_as_read(db: Session, notification_id: int):
-    notification = get_notification_by_id(db, notification_id)
-
-    if not notification:
+def update_notification(db: Session, notification_id: int, data: NotificationUpdate) -> Notification | None:
+    db_obj = get_notification_by_id(db, notification_id)
+    if not db_obj:
         return None
 
-    notification.is_read = True
-    db.commit()
-    db.refresh(notification)
-    return notification
-
-
-def update_notification(db: Session, notification_id: int, data: NotificationUpdate):
-    notification = get_notification_by_id(db, notification_id)
-
-    if not notification:
-        return None
-
-    for field, value in data.dict(exclude_unset=True).items():
-        setattr(notification, field, value)
+    update_data = data.model_dump(exclude_unset=True)
+    for field, value in update_data.items():
+        setattr(db_obj, field, value)
 
     db.commit()
-    db.refresh(notification)
-    return notification
+    db.refresh(db_obj)
+    return db_obj
 
 
-def delete_notification(db: Session, notification_id: int):
-    notification = get_notification_by_id(db, notification_id)
+def delete_notification(db: Session, notification_id: int) -> bool:
+    db_obj = get_notification_by_id(db, notification_id)
+    if not db_obj:
+        return False
 
-    if not notification:
-        return None
-
-    db.delete(notification)
+    db.delete(db_obj)
     db.commit()
-    return notification
+    return True

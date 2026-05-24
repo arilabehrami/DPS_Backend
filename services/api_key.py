@@ -1,48 +1,43 @@
 from sqlalchemy.orm import Session
-from models.api_key import APIKey
-from schemas.api_key import APIKeyCreate, APIKeyUpdate
+from models.api_key import ApiKey
+from schemas.api_key import ApiKeyCreate, ApiKeyUpdate
 
 
-def create_api_key(db: Session, data: APIKeyCreate):
-    api_key = APIKey(**data.dict(exclude_unset=True))
-    db.add(api_key)
+def create_api_key(db: Session, data: ApiKeyCreate) -> ApiKey:
+    db_obj = ApiKey(**data.model_dump())
+    db.add(db_obj)
     db.commit()
-    db.refresh(api_key)
-    return api_key
+    db.refresh(db_obj)
+    return db_obj
 
 
-def get_api_keys(db: Session, skip: int = 0, limit: int = 100):
-    return db.query(APIKey).offset(skip).limit(limit).all()
+def get_api_key_by_id(db: Session, api_key_id: int) -> ApiKey | None:
+    return db.query(ApiKey).filter(ApiKey.id == api_key_id).first()
 
 
-def get_api_key_by_id(db: Session, api_key_id: int):
-    return db.query(APIKey).filter(APIKey.id == api_key_id).first()
+def get_api_keys(db: Session, skip: int = 0, limit: int = 100) -> list[ApiKey]:
+    return db.query(ApiKey).offset(skip).limit(limit).all()
 
 
-def get_api_keys_by_user_id(db: Session, user_id: int):
-    return db.query(APIKey).filter(APIKey.user_id == user_id).all()
-
-
-def update_api_key(db: Session, api_key_id: int, data: APIKeyUpdate):
-    api_key = get_api_key_by_id(db, api_key_id)
-
-    if not api_key:
+def update_api_key(db: Session, api_key_id: int, data: ApiKeyUpdate) -> ApiKey | None:
+    db_obj = get_api_key_by_id(db, api_key_id)
+    if not db_obj:
         return None
 
-    for field, value in data.dict(exclude_unset=True).items():
-        setattr(api_key, field, value)
+    update_data = data.model_dump(exclude_unset=True)
+    for field, value in update_data.items():
+        setattr(db_obj, field, value)
 
     db.commit()
-    db.refresh(api_key)
-    return api_key
+    db.refresh(db_obj)
+    return db_obj
 
 
-def delete_api_key(db: Session, api_key_id: int):
-    api_key = get_api_key_by_id(db, api_key_id)
+def delete_api_key(db: Session, api_key_id: int) -> bool:
+    db_obj = get_api_key_by_id(db, api_key_id)
+    if not db_obj:
+        return False
 
-    if not api_key:
-        return None
-
-    db.delete(api_key)
+    db.delete(db_obj)
     db.commit()
-    return api_key
+    return True

@@ -1,112 +1,140 @@
+from datetime import datetime, timedelta, timezone
+import os
+
 from fastapi import APIRouter, Depends, HTTPException, status
+from jose import jwt
+from passlib.context import CryptContext
+from pydantic import BaseModel, EmailStr
 from sqlalchemy.orm import Session
 
 from database import get_db
 from models.role import Role
 from models.user import User
 from models.workspace import Workspace
-from schemas.auth import AuthResponse, AuthUserResponse, LoginRequest, RegisterRequest
-from security.auth_security import (
-    create_access_token,
-    get_current_user,
-    hash_password,
-    require_roles,
-    verify_password,
-)
-
+from schemas.user import UserCreate
+from services.user import create_user, get_user_by_email
+from routes.dependencies import get_current_user
 
 router = APIRouter(prefix="/auth", tags=["Auth"])
 
+SECRET_KEY = os.getenv("SECRET_KEY", "change-this-secret-key")
+ALGORITHM = os.getenv("JWT_ALGORITHM", "HS256")
+ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", "1440"))
 
-def build_auth_response(user: User) -> AuthResponse:
-    access_token = create_access_token(
-        {
-            "sub": user.email,
-            "user_id": user.id,
-            "role": user.role.name if user.role else None,
-            "workspace_id": user.workspace_id,
-        }
+pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+
+
+class LoginRequest(BaseModel):
+    email: EmailStr
+    password: str
+
+
+class RegisterRequest(BaseModel):
+    username: str | None = None
+    full_name: str | None = None
+    email: EmailStr
+    password: str
+    workspace_id: int | None = 1
+    role_id: int | None = 1
+
+
+class UserFrontendResponse(BaseModel):
+    id: int
+    full_name: str
+    username: str | None = None
+    email: EmailStr
+    workspace_id: int
+    role_id: int
+    role: str
+
+    model_config = {"from_attributes": True}
+
+
+class AuthResponse(BaseModel):
+    access_token: str
+    token: str
+    token_type: str = "bearer"
+    user: UserFrontendResponse
+
+
+def verify_password(plain_password: str, hashed_password: str) -> bool:
+    return pwd_context.verify(plain_password, hashed_password)
+
+
+def create_access_token(user: User) -> str:
+    expire = datetime.now(timezone.utc) + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+    payload = {"sub": str(user.id), "email": user.email, "exp": expire}
+    return jwt.encode(payload, SECRET_KEY, algorithm=ALGORITHM)
+
+
+def frontend_user(user: User) -> UserFrontendResponse:
+    return UserFrontendResponse(
+        id=user.id,
+        full_name=user.full_name,
+        username=user.username,
+        email=user.email,
+        workspace_id=user.workspace_id,
+        role_id=user.role_id,
+        role=user.role.name.lower() if user.role else "guest",
     )
 
-    return AuthResponse(
-        access_token=access_token,
-        user={
-            "id": user.id,
-            "workspace_id": user.workspace_id,
-            "role_id": user.role_id,
-            "username": user.username,
-            "email": user.email,
-            "role": user.role.name if user.role else None,
-        },
-    )
 
-
-@router.post("/register", response_model=AuthResponse, status_code=status.HTTP_201_CREATED)
-def register(data: RegisterRequest, db: Session = Depends(get_db)):
-    existing_email = db.query(User).filter(User.email == data.email).first()
-    if existing_email:
-        raise HTTPException(status_code=400, detail="Email already exists")
-
-    existing_username = db.query(User).filter(User.username == data.username).first()
-    if existing_username:
-        raise HTTPException(status_code=400, detail="Username already exists")
-
-    workspace = db.query(Workspace).filter(Workspace.id == data.workspace_id).first()
+def ensure_default_workspace_and_role(db: Session, workspace_id: int | None, role_id: int | None) -> tuple[int, int]:
+    workspace = db.query(Workspace).filter(Workspace.id == (workspace_id or 1)).first()
     if not workspace:
-        raise HTTPException(status_code=404, detail="Workspace not found")
+        workspace = Workspace(name="Default Workspace")
+        db.add(workspace)
+        db.commit()
+        db.refresh(workspace)
 
-    role = db.query(Role).filter(Role.id == data.role_id).first()
+    role = db.query(Role).filter(Role.id == (role_id or 1)).first()
     if not role:
-        raise HTTPException(status_code=404, detail="Role not found")
+        role = db.query(Role).filter(Role.name == "admin").first()
+    if not role:
+        role = Role(name="admin")
+        db.add(role)
+        db.commit()
+        db.refresh(role)
 
-    user = User(
-        workspace_id=data.workspace_id,
-        role_id=data.role_id,
-        username=data.username,
+    return workspace.id, role.id
+
+
+@router.post("/register", response_model=AuthResponse)
+def register(data: RegisterRequest, db: Session = Depends(get_db)):
+    existing_user = get_user_by_email(db, data.email)
+    if existing_user:
+        raise HTTPException(status_code=400, detail="Email already registered")
+
+    workspace_id, role_id = ensure_default_workspace_and_role(db, data.workspace_id, data.role_id)
+    username = data.username or data.email.split("@")[0]
+    full_name = data.full_name or username
+
+    user_create = UserCreate(
+        full_name=full_name,
+        username=username,
         email=data.email,
-        hashed_password=hash_password(data.password),
+        password=data.password,
+        workspace_id=workspace_id,
+        role_id=role_id,
     )
-
-    db.add(user)
-    db.commit()
-    db.refresh(user)
-
-    return build_auth_response(user)
+    user = create_user(db, user_create)
+    token = create_access_token(user)
+    return AuthResponse(access_token=token, token=token, user=frontend_user(user))
 
 
 @router.post("/login", response_model=AuthResponse)
 def login(data: LoginRequest, db: Session = Depends(get_db)):
-    user = db.query(User).filter(User.email == data.email).first()
-
+    user = get_user_by_email(db, data.email)
     if not user or not verify_password(data.password, user.hashed_password):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Email ose password eshte gabim",
-            headers={"WWW-Authenticate": "Bearer"},
+            detail="Invalid email or password",
         )
 
-    return build_auth_response(user)
+    token = create_access_token(user)
+    return AuthResponse(access_token=token, token=token, user=frontend_user(user))
 
 
-@router.get("/me", response_model=AuthUserResponse)
-def get_me(current_user: User = Depends(get_current_user)):
-    return {
-        "id": current_user.id,
-        "workspace_id": current_user.workspace_id,
-        "role_id": current_user.role_id,
-        "username": current_user.username,
-        "email": current_user.email,
-        "role": current_user.role.name if current_user.role else None,
-    }
-
-
-@router.get("/admin-check", response_model=AuthUserResponse)
-def admin_check(current_user: User = Depends(require_roles("admin"))):
-    return {
-        "id": current_user.id,
-        "workspace_id": current_user.workspace_id,
-        "role_id": current_user.role_id,
-        "username": current_user.username,
-        "email": current_user.email,
-        "role": current_user.role.name if current_user.role else None,
-    }
+@router.get("/me", response_model=UserFrontendResponse)
+def me(current_user: User = Depends(get_current_user)):
+    return frontend_user(current_user)

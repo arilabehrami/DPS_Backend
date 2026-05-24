@@ -3,50 +3,41 @@ from models.message import Message
 from schemas.message import MessageCreate, MessageUpdate
 
 
-def create_message(db: Session, data: MessageCreate):
-    message = Message(**data.dict(exclude_unset=True))
-    db.add(message)
+def create_message(db: Session, data: MessageCreate) -> Message:
+    db_obj = Message(**data.model_dump())
+    db.add(db_obj)
     db.commit()
-    db.refresh(message)
-    return message
+    db.refresh(db_obj)
+    return db_obj
 
 
-def get_messages(db: Session, skip: int = 0, limit: int = 100):
-    return db.query(Message).offset(skip).limit(limit).all()
-
-
-def get_message_by_id(db: Session, message_id: int):
+def get_message_by_id(db: Session, message_id: int) -> Message | None:
     return db.query(Message).filter(Message.id == message_id).first()
 
 
-def get_messages_by_conversation_id(db: Session, conversation_id: int):
-    return db.query(Message).filter(Message.conversation_id == conversation_id).all()
+def get_messages(db: Session, skip: int = 0, limit: int = 100) -> list[Message]:
+    return db.query(Message).offset(skip).limit(limit).all()
 
 
-def get_messages_by_workspace_id(db: Session, workspace_id: int):
-    return db.query(Message).filter(Message.workspace_id == workspace_id).all()
-
-
-def update_message(db: Session, message_id: int, data: MessageUpdate):
-    message = get_message_by_id(db, message_id)
-
-    if not message:
+def update_message(db: Session, message_id: int, data: MessageUpdate) -> Message | None:
+    db_obj = get_message_by_id(db, message_id)
+    if not db_obj:
         return None
 
-    for field, value in data.dict(exclude_unset=True).items():
-        setattr(message, field, value)
+    update_data = data.model_dump(exclude_unset=True)
+    for field, value in update_data.items():
+        setattr(db_obj, field, value)
 
     db.commit()
-    db.refresh(message)
-    return message
+    db.refresh(db_obj)
+    return db_obj
 
 
-def delete_message(db: Session, message_id: int):
-    message = get_message_by_id(db, message_id)
+def delete_message(db: Session, message_id: int) -> bool:
+    db_obj = get_message_by_id(db, message_id)
+    if not db_obj:
+        return False
 
-    if not message:
-        return None
-
-    db.delete(message)
+    db.delete(db_obj)
     db.commit()
-    return message
+    return True

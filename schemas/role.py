@@ -1,18 +1,21 @@
+from datetime import datetime
 from typing import Optional
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 
 
-class RoleCreate(BaseModel):
-    name: Optional[str] = None
+class RoleBase(BaseModel):
+    name: str
+
+
+class RoleCreate(RoleBase):
+    pass
 
 
 class RoleUpdate(BaseModel):
     name: Optional[str] = None
 
 
-class RoleResponse(BaseModel):
+class RoleResponse(RoleBase):
     id: int
-    name: Optional[str] = None
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)

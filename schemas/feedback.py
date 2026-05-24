@@ -1,25 +1,30 @@
-from typing import Optional
 from datetime import datetime
-from pydantic import BaseModel
+from typing import Optional
+from pydantic import BaseModel, ConfigDict
 
 
-class FeedbackCreate(BaseModel):
+class FeedbackBase(BaseModel):
     user_id: int
-    message: str
-    rating: Optional[int] = None
+    conversation_id: int
+    workspace_id: int
+    rating: int
+    comment: Optional[str] = None
+
+
+class FeedbackCreate(FeedbackBase):
+    pass
 
 
 class FeedbackUpdate(BaseModel):
-    message: Optional[str] = None
+    user_id: Optional[int] = None
+    conversation_id: Optional[int] = None
+    workspace_id: Optional[int] = None
     rating: Optional[int] = None
+    comment: Optional[str] = None
 
 
-class FeedbackResponse(BaseModel):
+class FeedbackResponse(FeedbackBase):
     id: int
-    user_id: int
-    message: str
-    rating: Optional[int] = None
     created_at: Optional[datetime] = None
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)

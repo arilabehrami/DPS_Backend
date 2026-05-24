@@ -1,28 +1,24 @@
-from typing import Optional
 from datetime import datetime
-from pydantic import BaseModel
+from typing import Optional
+from pydantic import BaseModel, ConfigDict
 
 
-class PersonaHistoryCreate(BaseModel):
-    persona_id: int
-    changed_field: Optional[str] = None
-    old_value: Optional[str] = None
-    new_value: Optional[str] = None
+class PersonaHistoryBase(BaseModel):
+    personality_id: int
+    change_description: str
+
+
+class PersonaHistoryCreate(PersonaHistoryBase):
+    pass
 
 
 class PersonaHistoryUpdate(BaseModel):
-    changed_field: Optional[str] = None
-    old_value: Optional[str] = None
-    new_value: Optional[str] = None
+    personality_id: Optional[int] = None
+    change_description: Optional[str] = None
 
 
-class PersonaHistoryResponse(BaseModel):
+class PersonaHistoryResponse(PersonaHistoryBase):
     id: int
-    persona_id: int
-    changed_field: Optional[str] = None
-    old_value: Optional[str] = None
-    new_value: Optional[str] = None
     changed_at: Optional[datetime] = None
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)

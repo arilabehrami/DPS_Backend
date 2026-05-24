@@ -1,58 +1,43 @@
-from sqlalchemy.orm import Session as DBSession
-from models.session import Session as UserSession
+from sqlalchemy.orm import Session
+from models.session import Session
 from schemas.session import SessionCreate, SessionUpdate
 
 
-def create_session(db: DBSession, data: SessionCreate):
-    session = UserSession(**data.dict(exclude_unset=True))
-    db.add(session)
+def create_session(db: Session, data: SessionCreate) -> Session:
+    db_obj = Session(**data.model_dump())
+    db.add(db_obj)
     db.commit()
-    db.refresh(session)
-    return session
+    db.refresh(db_obj)
+    return db_obj
 
 
-def get_sessions(db: DBSession, skip: int = 0, limit: int = 100):
-    return db.query(UserSession).offset(skip).limit(limit).all()
+def get_session_by_id(db: Session, session_id: int) -> Session | None:
+    return db.query(Session).filter(Session.id == session_id).first()
 
 
-def get_session_by_id(db: DBSession, session_id: int):
-    return db.query(UserSession).filter(UserSession.id == session_id).first()
+def get_sessions(db: Session, skip: int = 0, limit: int = 100) -> list[Session]:
+    return db.query(Session).offset(skip).limit(limit).all()
 
 
-def get_sessions_by_user_id(db: DBSession, user_id: int):
-    return db.query(UserSession).filter(UserSession.user_id == user_id).all()
-
-
-def update_session(db: DBSession, session_id: int, data: SessionUpdate):
-    session = get_session_by_id(db, session_id)
-
-    if not session:
+def update_session(db: Session, session_id: int, data: SessionUpdate) -> Session | None:
+    db_obj = get_session_by_id(db, session_id)
+    if not db_obj:
         return None
 
-    for field, value in data.dict(exclude_unset=True).items():
-        setattr(session, field, value)
+    update_data = data.model_dump(exclude_unset=True)
+    for field, value in update_data.items():
+        setattr(db_obj, field, value)
 
     db.commit()
-    db.refresh(session)
-    return session
+    db.refresh(db_obj)
+    return db_obj
 
 
-def delete_session(db: DBSession, session_id: int):
-    session = get_session_by_id(db, session_id)
+def delete_session(db: Session, session_id: int) -> bool:
+    db_obj = get_session_by_id(db, session_id)
+    if not db_obj:
+        return False
 
-    if not session:
-        return None
-
-    db.delete(session)
+    db.delete(db_obj)
     db.commit()
-    return session
-
-
-def delete_sessions_by_user_id(db: DBSession, user_id: int):
-    sessions = get_sessions_by_user_id(db, user_id)
-
-    for session in sessions:
-        db.delete(session)
-
-    db.commit()
-    return sessions
+    return True

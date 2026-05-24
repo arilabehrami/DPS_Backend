@@ -1,17 +1,23 @@
-from pydantic import BaseModel
+from datetime import datetime
+from typing import Optional
+from pydantic import BaseModel, ConfigDict
 
 
-class WorkspaceCreate(BaseModel):
+class WorkspaceBase(BaseModel):
     name: str
+
+
+class WorkspaceCreate(WorkspaceBase):
+    pass
 
 
 class WorkspaceUpdate(BaseModel):
-    name: str
+    name: Optional[str] = None
 
 
-class WorkspaceResponse(BaseModel):
+class WorkspaceResponse(WorkspaceBase):
     id: int
-    name: str
+    created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)

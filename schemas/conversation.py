@@ -1,25 +1,29 @@
+from datetime import datetime
 from typing import Optional
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 
 
-class ConversationCreate(BaseModel):
-    workspace_id: int
+class ConversationBase(BaseModel):
     user_id: int
-    persona_id: int
+    personality_id: int
+    workspace_id: int
     title: Optional[str] = None
+
+
+class ConversationCreate(ConversationBase):
+    pass
 
 
 class ConversationUpdate(BaseModel):
+    user_id: Optional[int] = None
+    personality_id: Optional[int] = None
+    workspace_id: Optional[int] = None
     title: Optional[str] = None
-    persona_id: Optional[int] = None
 
 
-class ConversationResponse(BaseModel):
+class ConversationResponse(ConversationBase):
     id: int
-    workspace_id: int
-    user_id: int
-    persona_id: int
-    title: Optional[str] = None
+    started_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)

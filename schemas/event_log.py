@@ -1,23 +1,28 @@
-from typing import Optional
 from datetime import datetime
-from pydantic import BaseModel
+from typing import Optional
+from pydantic import BaseModel, ConfigDict
 
 
-class EventLogCreate(BaseModel):
-    event_type: Optional[str] = None
+class EventLogBase(BaseModel):
+    user_id: int
+    workspace_id: Optional[int] = None
+    event_type: str
     description: Optional[str] = None
+
+
+class EventLogCreate(EventLogBase):
+    pass
 
 
 class EventLogUpdate(BaseModel):
+    user_id: Optional[int] = None
+    workspace_id: Optional[int] = None
     event_type: Optional[str] = None
     description: Optional[str] = None
 
 
-class EventLogResponse(BaseModel):
+class EventLogResponse(EventLogBase):
     id: int
-    event_type: Optional[str] = None
-    description: Optional[str] = None
     timestamp: Optional[datetime] = None
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)

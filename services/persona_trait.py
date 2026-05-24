@@ -3,46 +3,41 @@ from models.persona_trait import PersonaTrait
 from schemas.persona_trait import PersonaTraitCreate, PersonaTraitUpdate
 
 
-def create_persona_trait(db: Session, data: PersonaTraitCreate):
-    persona_trait = PersonaTrait(**data.dict(exclude_unset=True))
-    db.add(persona_trait)
+def create_persona_trait(db: Session, data: PersonaTraitCreate) -> PersonaTrait:
+    db_obj = PersonaTrait(**data.model_dump())
+    db.add(db_obj)
     db.commit()
-    db.refresh(persona_trait)
-    return persona_trait
+    db.refresh(db_obj)
+    return db_obj
 
 
-def get_persona_traits(db: Session, skip: int = 0, limit: int = 100):
+def get_persona_trait_by_id(db: Session, persona_trait_id: int) -> PersonaTrait | None:
+    return db.query(PersonaTrait).filter(PersonaTrait.id == persona_trait_id).first()
+
+
+def get_persona_traits(db: Session, skip: int = 0, limit: int = 100) -> list[PersonaTrait]:
     return db.query(PersonaTrait).offset(skip).limit(limit).all()
 
 
-def get_persona_trait_by_id(db: Session, trait_id: int):
-    return db.query(PersonaTrait).filter(PersonaTrait.id == trait_id).first()
-
-
-def get_persona_traits_by_persona_id(db: Session, persona_id: int):
-    return db.query(PersonaTrait).filter(PersonaTrait.persona_id == persona_id).all()
-
-
-def update_persona_trait(db: Session, trait_id: int, data: PersonaTraitUpdate):
-    persona_trait = get_persona_trait_by_id(db, trait_id)
-
-    if not persona_trait:
+def update_persona_trait(db: Session, persona_trait_id: int, data: PersonaTraitUpdate) -> PersonaTrait | None:
+    db_obj = get_persona_trait_by_id(db, persona_trait_id)
+    if not db_obj:
         return None
 
-    for field, value in data.dict(exclude_unset=True).items():
-        setattr(persona_trait, field, value)
+    update_data = data.model_dump(exclude_unset=True)
+    for field, value in update_data.items():
+        setattr(db_obj, field, value)
 
     db.commit()
-    db.refresh(persona_trait)
-    return persona_trait
+    db.refresh(db_obj)
+    return db_obj
 
 
-def delete_persona_trait(db: Session, trait_id: int):
-    persona_trait = get_persona_trait_by_id(db, trait_id)
+def delete_persona_trait(db: Session, persona_trait_id: int) -> bool:
+    db_obj = get_persona_trait_by_id(db, persona_trait_id)
+    if not db_obj:
+        return False
 
-    if not persona_trait:
-        return None
-
-    db.delete(persona_trait)
+    db.delete(db_obj)
     db.commit()
-    return persona_trait
+    return True

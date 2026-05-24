@@ -1,78 +1,74 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 
 from database import get_db
-from security.auth_security import get_current_user
 from schemas.prompt_template import PromptTemplateCreate, PromptTemplateUpdate, PromptTemplateResponse
-from services.cache_service import get_or_set_list_cache, invalidate_cache_prefix
 from services.prompt_template import (
     create_prompt_template,
-    get_prompt_templates,
     get_prompt_template_by_id,
-    search_prompt_templates,
+    get_prompt_templates,
     update_prompt_template,
-    delete_prompt_template
+    delete_prompt_template,
 )
+from routes.dependencies import require_roles
 
 router = APIRouter(
     prefix="/prompt-templates",
     tags=["Prompt Templates"],
-    dependencies=[Depends(get_current_user)],
 )
 
 
 @router.post("/", response_model=PromptTemplateResponse)
-def create_prompt_template_endpoint(data: PromptTemplateCreate, db: Session = Depends(get_db)):
-    prompt_template = create_prompt_template(db, data)
-    invalidate_cache_prefix("prompt_templates:")
-    return prompt_template
+def create_prompt_template_endpoint(
+    data: PromptTemplateCreate,
+    db: Session = Depends(get_db),
+    current_user=Depends(require_roles("admin")),
+):
+    return create_prompt_template(db, data)
 
 
 @router.get("/", response_model=list[PromptTemplateResponse])
-def get_prompt_templates_endpoint(skip: int = 0, limit: int = 100, db: Session = Depends(get_db)):
-    return get_or_set_list_cache(
-        f"prompt_templates:list:skip={skip}:limit={limit}",
-        lambda: get_prompt_templates(db, skip, limit),
-        PromptTemplateResponse,
-    )
+def list_prompt_templates_endpoint(
+    skip: int = Query(0, ge=0),
+    limit: int = Query(100, ge=1, le=500),
+    db: Session = Depends(get_db),
+    current_user=Depends(require_roles("admin", "user")),
+):
+    return get_prompt_templates(db, skip=skip, limit=limit)
 
 
-@router.get("/search", response_model=list[PromptTemplateResponse])
-def search_prompt_templates_endpoint(keyword: str, db: Session = Depends(get_db)):
-    return get_or_set_list_cache(
-        f"prompt_templates:search:keyword={keyword}",
-        lambda: search_prompt_templates(db, keyword),
-        PromptTemplateResponse,
-    )
+@router.get("/{prompt_template_id}", response_model=PromptTemplateResponse)
+def get_prompt_template_endpoint(
+    prompt_template_id: int,
+    db: Session = Depends(get_db),
+    current_user=Depends(require_roles("admin", "user")),
+):
+    db_obj = get_prompt_template_by_id(db, prompt_template_id)
+    if not db_obj:
+        raise HTTPException(status_code=404, detail="PromptTemplate not found")
+    return db_obj
 
 
-@router.get("/{template_id}", response_model=PromptTemplateResponse)
-def get_prompt_template_endpoint(template_id: int, db: Session = Depends(get_db)):
-    prompt_template = get_prompt_template_by_id(db, template_id)
-
-    if not prompt_template:
-        raise HTTPException(status_code=404, detail="Prompt template not found")
-
-    return prompt_template
-
-
-@router.put("/{template_id}", response_model=PromptTemplateResponse)
-def update_prompt_template_endpoint(template_id: int, data: PromptTemplateUpdate, db: Session = Depends(get_db)):
-    prompt_template = update_prompt_template(db, template_id, data)
-
-    if not prompt_template:
-        raise HTTPException(status_code=404, detail="Prompt template not found")
-
-    invalidate_cache_prefix("prompt_templates:")
-    return prompt_template
+@router.put("/{prompt_template_id}", response_model=PromptTemplateResponse)
+def update_prompt_template_endpoint(
+    prompt_template_id: int,
+    data: PromptTemplateUpdate,
+    db: Session = Depends(get_db),
+    current_user=Depends(require_roles("admin")),
+):
+    db_obj = update_prompt_template(db, prompt_template_id, data)
+    if not db_obj:
+        raise HTTPException(status_code=404, detail="PromptTemplate not found")
+    return db_obj
 
 
-@router.delete("/{template_id}")
-def delete_prompt_template_endpoint(template_id: int, db: Session = Depends(get_db)):
-    prompt_template = delete_prompt_template(db, template_id)
-
-    if not prompt_template:
-        raise HTTPException(status_code=404, detail="Prompt template not found")
-
-    invalidate_cache_prefix("prompt_templates:")
-    return {"message": "Prompt template deleted successfully"}
+@router.delete("/{prompt_template_id}")
+def delete_prompt_template_endpoint(
+    prompt_template_id: int,
+    db: Session = Depends(get_db),
+    current_user=Depends(require_roles("admin")),
+):
+    deleted = delete_prompt_template(db, prompt_template_id)
+    if not deleted:
+        raise HTTPException(status_code=404, detail="PromptTemplate not found")
+    return {"message": "PromptTemplate deleted successfully"}

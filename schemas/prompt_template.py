@@ -1,26 +1,24 @@
-from typing import Optional
 from datetime import datetime
-from pydantic import BaseModel
+from typing import Optional
+from pydantic import BaseModel, ConfigDict
 
 
-class PromptTemplateCreate(BaseModel):
-    name: str
-    description: Optional[str] = None
-    template: str
+class PromptTemplateBase(BaseModel):
+    persona_id: int
+    template_text: str
+
+
+class PromptTemplateCreate(PromptTemplateBase):
+    pass
 
 
 class PromptTemplateUpdate(BaseModel):
-    name: Optional[str] = None
-    description: Optional[str] = None
-    template: Optional[str] = None
+    persona_id: Optional[int] = None
+    template_text: Optional[str] = None
 
 
-class PromptTemplateResponse(BaseModel):
+class PromptTemplateResponse(PromptTemplateBase):
     id: int
-    name: str
-    description: Optional[str] = None
-    template: str
     created_at: Optional[datetime] = None
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)

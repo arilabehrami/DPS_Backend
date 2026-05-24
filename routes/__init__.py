@@ -1,0 +1,47 @@
+from routes.api_key import router as api_key_router
+from routes.audit_log import router as audit_log_router
+from routes.auth import router as auth_router
+from routes.chat import router as chat_router
+from routes.conversation import router as conversation_router
+from routes.event_log import router as event_log_router
+from routes.experiment import router as experiment_router
+from routes.feedback import router as feedback_router
+from routes.interaction_stat import router as interaction_stat_router
+from routes.message import router as message_router
+from routes.notification import router as notification_router
+from routes.persona import router as persona_router
+from routes.persona_history import router as persona_history_router
+from routes.persona_trait import router as persona_trait_router
+from routes.personality import router as personality_router
+from routes.prompt_template import router as prompt_template_router
+from routes.rating import router as rating_router
+from routes.role import router as role_router
+from routes.session import router as session_router
+from routes.setting import router as setting_router
+from routes.user import router as user_router
+from routes.workspace import router as workspace_router
+
+ALL_ROUTERS = [
+    api_key_router,
+    audit_log_router,
+    auth_router,
+    chat_router,
+    conversation_router,
+    event_log_router,
+    experiment_router,
+    feedback_router,
+    interaction_stat_router,
+    message_router,
+    notification_router,
+    persona_router,
+    persona_history_router,
+    persona_trait_router,
+    personality_router,
+    prompt_template_router,
+    rating_router,
+    role_router,
+    session_router,
+    setting_router,
+    user_router,
+    workspace_router,
+]

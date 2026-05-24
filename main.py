@@ -3,60 +3,15 @@ import logging
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from database import Base, SessionLocal, engine
+from database import Base, engine
 from middleware.logging_middleware import LoggingMiddleware
-from services.demo_seed import seed_demo_data
 
-from models.ai_response import AIResponse
-from models.api_key import APIKey
-from models.audit_log import AuditLog
-from models.chat_message import ChatMessage
-from models.conversation import Conversation
-from models.event_log import EventLog
-from models.feedback import Feedback
-from models.interaction_stats import InteractionStats
-from models.message import Message
-from models.notification import Notification
-from models.persona_history import PersonaHistory
-from models.persona_trait import PersonaTrait
-from models.persona import Persona
-from models.personality import Personality
-from models.prompt_template import PromptTemplate
-from models.role import Role
-from models.session import Session
-from models.settings import Settings
-from models.user import User
-from models.workspace import Workspace
+# Import models so SQLAlchemy can register all tables before create_all
+import models
 
-from routes.ai_response import router as ai_response_router
-from routes.auth import router as auth_router
-from routes.api_key import router as api_key_router
-from routes.audit_log import router as audit_log_router
-from routes.chat import router as chat_router
-from routes.chat_message import router as chat_message_router
-from routes.conversation import router as conversation_router
-from routes.event_log import router as event_log_router
-from routes.feedback import router as feedback_router
-from routes.interaction_stats import router as interaction_stats_router
-from routes.message import router as message_router
-from routes.notification import router as notification_router
-from routes.openai_ai import router as openai_ai_router
-from routes.persona_history import router as persona_history_router
-from routes.persona_trait import router as persona_trait_router
-from routes.persona import router as persona_router
-from routes.personality import router as personality_router
-from routes.prompt_template import router as prompt_template_router
-from routes.role import router as role_router
-from routes.session import router as session_router
-from routes.settings import router as settings_router
-from routes.user import router as user_router
-from routes.workspace import router as workspace_router
+# Import all routes from routes/__init__.py
+from routes import ALL_ROUTERS
 
-
-Base.metadata.create_all(bind=engine)
-
-with SessionLocal() as db:
-    seed_demo_data(db)
 
 logging.basicConfig(
     level=logging.INFO,
@@ -84,6 +39,8 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+Base.metadata.create_all(bind=engine)
+
 
 @app.get("/")
 def root():
@@ -92,26 +49,5 @@ def root():
     }
 
 
-app.include_router(ai_response_router)
-app.include_router(auth_router)
-app.include_router(api_key_router)
-app.include_router(audit_log_router)
-app.include_router(chat_router)
-app.include_router(chat_message_router)
-app.include_router(conversation_router)
-app.include_router(event_log_router)
-app.include_router(feedback_router)
-app.include_router(interaction_stats_router)
-app.include_router(message_router)
-app.include_router(notification_router)
-app.include_router(openai_ai_router)
-app.include_router(persona_history_router)
-app.include_router(persona_trait_router)
-app.include_router(persona_router)
-app.include_router(personality_router)
-app.include_router(prompt_template_router)
-app.include_router(role_router)
-app.include_router(session_router)
-app.include_router(settings_router)
-app.include_router(user_router)
-app.include_router(workspace_router)
+for router in ALL_ROUTERS:
+    app.include_router(router)

@@ -1,25 +1,31 @@
+from datetime import datetime
 from typing import Optional
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 
 
-class PersonalityCreate(BaseModel):
+class PersonalityBase(BaseModel):
+    persona_id: int
+    user_id: Optional[int] = None
     workspace_id: int
     name: str
     description: Optional[str] = None
-    user_id: Optional[int] = None
+
+
+class PersonalityCreate(PersonalityBase):
+    pass
 
 
 class PersonalityUpdate(BaseModel):
+    persona_id: Optional[int] = None
+    user_id: Optional[int] = None
+    workspace_id: Optional[int] = None
     name: Optional[str] = None
     description: Optional[str] = None
 
 
-class PersonalityResponse(BaseModel):
+class PersonalityResponse(PersonalityBase):
     id: int
-    workspace_id: int
-    name: str
-    description: Optional[str] = None
-    user_id: Optional[int] = None
+    created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)

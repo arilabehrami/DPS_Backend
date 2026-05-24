@@ -1,25 +1,32 @@
+from datetime import datetime
 from typing import Optional
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 
 
-class MessageCreate(BaseModel):
-    workspace_id: int
+class MessageBase(BaseModel):
     conversation_id: int
-    sender: Optional[str] = None
-    content: Optional[str] = None
+    workspace_id: int
+    sender_type: str
+    sender_user_id: Optional[int] = None
+    sender_personality_id: Optional[int] = None
+    content: str
+
+
+class MessageCreate(MessageBase):
+    pass
 
 
 class MessageUpdate(BaseModel):
-    sender: Optional[str] = None
+    conversation_id: Optional[int] = None
+    workspace_id: Optional[int] = None
+    sender_type: Optional[str] = None
+    sender_user_id: Optional[int] = None
+    sender_personality_id: Optional[int] = None
     content: Optional[str] = None
 
 
-class MessageResponse(BaseModel):
+class MessageResponse(MessageBase):
     id: int
-    workspace_id: int
-    conversation_id: int
-    sender: Optional[str] = None
-    content: Optional[str] = None
+    timestamp: Optional[datetime] = None
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)

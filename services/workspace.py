@@ -3,42 +3,41 @@ from models.workspace import Workspace
 from schemas.workspace import WorkspaceCreate, WorkspaceUpdate
 
 
-def create_workspace(db: Session, data: WorkspaceCreate):
-    workspace = Workspace(**data.dict(exclude_unset=True))
-    db.add(workspace)
+def create_workspace(db: Session, data: WorkspaceCreate) -> Workspace:
+    db_obj = Workspace(**data.model_dump())
+    db.add(db_obj)
     db.commit()
-    db.refresh(workspace)
-    return workspace
+    db.refresh(db_obj)
+    return db_obj
 
 
-def get_workspaces(db: Session, skip: int = 0, limit: int = 100):
-    return db.query(Workspace).offset(skip).limit(limit).all()
-
-
-def get_workspace_by_id(db: Session, workspace_id: int):
+def get_workspace_by_id(db: Session, workspace_id: int) -> Workspace | None:
     return db.query(Workspace).filter(Workspace.id == workspace_id).first()
 
 
-def update_workspace(db: Session, workspace_id: int, data: WorkspaceUpdate):
-    workspace = get_workspace_by_id(db, workspace_id)
+def get_workspaces(db: Session, skip: int = 0, limit: int = 100) -> list[Workspace]:
+    return db.query(Workspace).offset(skip).limit(limit).all()
 
-    if not workspace:
+
+def update_workspace(db: Session, workspace_id: int, data: WorkspaceUpdate) -> Workspace | None:
+    db_obj = get_workspace_by_id(db, workspace_id)
+    if not db_obj:
         return None
 
-    for field, value in data.dict(exclude_unset=True).items():
-        setattr(workspace, field, value)
+    update_data = data.model_dump(exclude_unset=True)
+    for field, value in update_data.items():
+        setattr(db_obj, field, value)
 
     db.commit()
-    db.refresh(workspace)
-    return workspace
+    db.refresh(db_obj)
+    return db_obj
 
 
-def delete_workspace(db: Session, workspace_id: int):
-    workspace = get_workspace_by_id(db, workspace_id)
+def delete_workspace(db: Session, workspace_id: int) -> bool:
+    db_obj = get_workspace_by_id(db, workspace_id)
+    if not db_obj:
+        return False
 
-    if not workspace:
-        return None
-
-    db.delete(workspace)
+    db.delete(db_obj)
     db.commit()
-    return workspace
+    return True

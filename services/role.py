@@ -3,42 +3,41 @@ from models.role import Role
 from schemas.role import RoleCreate, RoleUpdate
 
 
-def create_role(db: Session, data: RoleCreate):
-    role = Role(**data.dict(exclude_unset=True))
-    db.add(role)
+def create_role(db: Session, data: RoleCreate) -> Role:
+    db_obj = Role(**data.model_dump())
+    db.add(db_obj)
     db.commit()
-    db.refresh(role)
-    return role
+    db.refresh(db_obj)
+    return db_obj
 
 
-def get_roles(db: Session, skip: int = 0, limit: int = 100):
-    return db.query(Role).offset(skip).limit(limit).all()
-
-
-def get_role_by_id(db: Session, role_id: int):
+def get_role_by_id(db: Session, role_id: int) -> Role | None:
     return db.query(Role).filter(Role.id == role_id).first()
 
 
-def update_role(db: Session, role_id: int, data: RoleUpdate):
-    role = get_role_by_id(db, role_id)
+def get_roles(db: Session, skip: int = 0, limit: int = 100) -> list[Role]:
+    return db.query(Role).offset(skip).limit(limit).all()
 
-    if not role:
+
+def update_role(db: Session, role_id: int, data: RoleUpdate) -> Role | None:
+    db_obj = get_role_by_id(db, role_id)
+    if not db_obj:
         return None
 
-    for field, value in data.dict(exclude_unset=True).items():
-        setattr(role, field, value)
+    update_data = data.model_dump(exclude_unset=True)
+    for field, value in update_data.items():
+        setattr(db_obj, field, value)
 
     db.commit()
-    db.refresh(role)
-    return role
+    db.refresh(db_obj)
+    return db_obj
 
 
-def delete_role(db: Session, role_id: int):
-    role = get_role_by_id(db, role_id)
+def delete_role(db: Session, role_id: int) -> bool:
+    db_obj = get_role_by_id(db, role_id)
+    if not db_obj:
+        return False
 
-    if not role:
-        return None
-
-    db.delete(role)
+    db.delete(db_obj)
     db.commit()
-    return role
+    return True
