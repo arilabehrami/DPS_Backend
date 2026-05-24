@@ -19,27 +19,30 @@ def seed_demo_data(db: Session) -> None:
     if os.getenv("SEED_DEMO_DATA", "true").lower() not in {"1", "true", "yes"}:
         return
 
-    workspace = db.query(Workspace).filter(Workspace.id == 1).first()
+    workspace = db.query(Workspace).filter(Workspace.name == "Default Workspace").first()
     if not workspace:
-        workspace = Workspace(id=1, name="Default Workspace")
+        workspace = Workspace(name="Default Workspace")
         db.add(workspace)
+        db.commit()
+        db.refresh(workspace)
 
-    admin_role = db.query(Role).filter(Role.id == 1).first()
+    admin_role = db.query(Role).filter(Role.name == "admin").first()
     if not admin_role:
-        admin_role = Role(id=1, name="admin")
+        admin_role = Role(name="admin")
         db.add(admin_role)
+        db.commit()
+        db.refresh(admin_role)
 
     user_role = db.query(Role).filter(Role.name == "user").first()
     if not user_role:
         user_role = Role(name="user")
         db.add(user_role)
+        db.commit()
+        db.refresh(user_role)
 
-    db.commit()
-
-    admin_user = db.query(User).filter(User.id == 1).first()
+    admin_user = db.query(User).filter(User.email == "admin@dps.com").first()
     if not admin_user:
         admin_user = User(
-            id=1,
             workspace_id=workspace.id,
             role_id=admin_role.id,
             username="admin",
@@ -48,11 +51,11 @@ def seed_demo_data(db: Session) -> None:
         )
         db.add(admin_user)
         db.commit()
+        db.refresh(admin_user)
 
-    persona = db.query(Persona).filter(Persona.id == 1).first()
+    persona = db.query(Persona).filter(Persona.name == "Aura").first()
     if not persona:
         persona = Persona(
-            id=1,
             workspace_id=workspace.id,
             user_id=admin_user.id,
             name="Aura",
@@ -60,6 +63,7 @@ def seed_demo_data(db: Session) -> None:
         )
         db.add(persona)
         db.commit()
+        db.refresh(persona)
 
     existing_trait = db.query(PersonaTrait).filter(PersonaTrait.persona_id == persona.id).first()
     if not existing_trait:
@@ -72,10 +76,13 @@ def seed_demo_data(db: Session) -> None:
         )
         db.commit()
 
-    conversation = db.query(Conversation).filter(Conversation.id == 1).first()
+    conversation = db.query(Conversation).filter(
+        Conversation.title == "Demo Conversation",
+        Conversation.user_id == admin_user.id
+    ).first()
+
     if not conversation:
         conversation = Conversation(
-            id=1,
             workspace_id=workspace.id,
             user_id=admin_user.id,
             persona_id=persona.id,
@@ -84,4 +91,4 @@ def seed_demo_data(db: Session) -> None:
         db.add(conversation)
         db.commit()
 
-    logger.info("Demo data ready: workspace=1 role=1 user=1 persona=1 conversation=1")
+    logger.info("Demo data ready.")
