@@ -16,7 +16,7 @@ from schemas.chat import (
 from security.auth_security import get_current_user
 from services.background_jobs import generate_ai_response_job
 from services.cache_service import invalidate_cache_prefix
-from services.ollama_service import generate_with_ollama
+from services.openai_service import chat_with_openai
 
 
 router = APIRouter(
@@ -92,7 +92,14 @@ def generate_chat_response(
     db.refresh(user_message)
     invalidate_cache_prefix("messages:")
 
-    response_text, model_used = generate_with_ollama(prompt, data.model)
+    try:
+        response_text = chat_with_openai(prompt)
+        model_used = data.model or "gpt-4o-mini"
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"OpenAI response generation failed: {str(e)}",
+        )
 
     ai_message = Message(
         workspace_id=current_user.workspace_id,
