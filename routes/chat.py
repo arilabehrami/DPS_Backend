@@ -16,7 +16,7 @@ from schemas.chat import (
 from security.auth_security import get_current_user
 from services.background_jobs import generate_ai_response_job
 from services.cache_service import invalidate_cache_prefix
-from services.openai_service import chat_with_openai
+from services.ollama_service import generate_with_ollama
 
 
 router = APIRouter(
@@ -41,6 +41,7 @@ Persona traits:
 {trait_lines or "- No traits provided"}
 
 Respond naturally as this persona. Stay in character, be helpful, and keep the answer concise.
+Always answer in clear English, even if the user writes in another language.
 
 User message:
 {message}
@@ -93,12 +94,13 @@ def generate_chat_response(
     invalidate_cache_prefix("messages:")
 
     try:
-        response_text = chat_with_openai(prompt)
-        model_used = data.model or "gpt-4o-mini"
+        response_text, model_used = generate_with_ollama(prompt, data.model)
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(
             status_code=500,
-            detail=f"OpenAI response generation failed: {str(e)}",
+            detail=f"Ollama response generation failed: {str(e)}",
         )
 
     ai_message = Message(
@@ -127,6 +129,9 @@ def generate_chat_response(
         ai_response_id=ai_response.id,
         model_used=model_used,
         response_text=response_text,
+        response=response_text,
+        message=response_text,
+        content=response_text,
     )
 
 

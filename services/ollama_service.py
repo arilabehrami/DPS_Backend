@@ -10,19 +10,32 @@ from fastapi import HTTPException, status
 load_dotenv()
 
 OLLAMA_BASE_URL = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434").rstrip("/")
-OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "llama3.2")
+OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "phi3")
 
 
 def generate_with_ollama(prompt: str, model: str | None = None) -> tuple[str, str]:
     model_name = model or OLLAMA_MODEL
     payload = {
         "model": model_name,
-        "prompt": prompt,
+        "messages": [
+            {
+                "role": "system",
+                "content": (
+                    "You are a helpful assistant. Always answer in clear English, "
+                    "even if the user asks in another language."
+                ),
+            },
+            {"role": "user", "content": prompt},
+        ],
         "stream": False,
+        "options": {
+            "temperature": 0.2,
+            "num_predict": 260,
+        },
     }
 
     request = Request(
-        f"{OLLAMA_BASE_URL}/api/generate",
+        f"{OLLAMA_BASE_URL}/api/chat",
         data=json.dumps(payload).encode("utf-8"),
         headers={"Content-Type": "application/json"},
         method="POST",
@@ -47,7 +60,7 @@ def generate_with_ollama(prompt: str, model: str | None = None) -> tuple[str, st
             detail="Ollama request timed out",
         ) from exc
 
-    generated_text = response_data.get("response")
+    generated_text = response_data.get("message", {}).get("content")
     if not generated_text:
         raise HTTPException(
             status_code=status.HTTP_502_BAD_GATEWAY,

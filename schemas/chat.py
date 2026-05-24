@@ -15,6 +15,9 @@ class ChatGenerateResponse(BaseModel):
     ai_response_id: int
     model_used: str
     response_text: str
+    response: str
+    message: str
+    content: str
 
 
 class ChatGenerateQueuedResponse(BaseModel):
