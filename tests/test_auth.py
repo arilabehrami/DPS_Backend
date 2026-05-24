@@ -31,13 +31,16 @@ def test_register_hashes_password_and_returns_token(client, db_session):
     assert response.status_code == 201
     body = response.json()
     assert body["access_token"]
+    assert body["token"]
     assert body["token_type"] == "bearer"
+    assert body["user"]["name"] == "admin"
     assert body["user"]["email"] == "admin@example.com"
+    assert body["user"]["role"] == "employee"
     assert "hashed_password" not in body["user"]
 
     user = db_session.query(User).filter(User.email == "admin@example.com").first()
     assert user is not None
-    assert user.role.name == "user"
+    assert user.role.name == "employee"
     assert user.hashed_password != "secret123"
     assert verify_password("secret123", user.hashed_password)
 
@@ -91,7 +94,7 @@ def test_admin_check_requires_admin_role(client, db_session):
 def test_admin_can_list_users(client, db_session):
     workspace = Workspace(name="Main Workspace")
     admin_role = Role(name="admin")
-    user_role = Role(name="user")
+    user_role = Role(name="employee")
     db_session.add_all([workspace, admin_role, user_role])
     db_session.commit()
 
@@ -100,7 +103,7 @@ def test_admin_can_list_users(client, db_session):
         workspace_id=workspace.id,
         role_id=admin_role.id,
         username="admin-list",
-        email="admin-list@example.com",
+        email="admin@dps.com",
         hashed_password=hash_password("secret123"),
     )
     normal_user = User(
@@ -116,7 +119,7 @@ def test_admin_can_list_users(client, db_session):
 
     login_response = client.post(
         "/auth/login",
-        json={"email": "admin-list@example.com", "password": "secret123"},
+        json={"email": "admin@dps.com", "password": "secret123"},
     )
     token = login_response.json()["access_token"]
 
@@ -131,7 +134,7 @@ def test_admin_can_list_users(client, db_session):
 
 def test_user_cannot_list_or_read_other_users(client, db_session):
     workspace = Workspace(name="Main Workspace")
-    user_role = Role(name="user")
+    user_role = Role(name="employee")
     db_session.add_all([workspace, user_role])
     db_session.commit()
 
@@ -185,7 +188,7 @@ def test_cannot_create_second_admin(client, db_session):
         workspace_id=workspace.id,
         role_id=admin_role.id,
         username="existing-admin",
-        email="existing-admin@example.com",
+        email="admin@dps.com",
         hashed_password=hash_password("secret123"),
     )
     db_session.add(existing_admin)
@@ -193,7 +196,7 @@ def test_cannot_create_second_admin(client, db_session):
 
     login_response = client.post(
         "/auth/login",
-        json={"email": "existing-admin@example.com", "password": "secret123"},
+        json={"email": "admin@dps.com", "password": "secret123"},
     )
     token = login_response.json()["access_token"]
 
@@ -211,3 +214,33 @@ def test_cannot_create_second_admin(client, db_session):
     )
 
     assert response.status_code == 400
+
+
+def test_non_default_admin_is_demoted_on_login(client, db_session):
+    workspace = Workspace(name="Main Workspace")
+    admin_role = Role(name="admin")
+    employee_role = Role(name="employee")
+    db_session.add_all([workspace, admin_role, employee_role])
+    db_session.commit()
+
+    accidental_admin = User(
+        full_name="Accidental Admin",
+        workspace_id=workspace.id,
+        role_id=admin_role.id,
+        username="accidental-admin",
+        email="accidental@example.com",
+        hashed_password=hash_password("secret123"),
+    )
+    db_session.add(accidental_admin)
+    db_session.commit()
+
+    response = client.post(
+        "/auth/login",
+        json={"email": "accidental@example.com", "password": "secret123"},
+    )
+
+    assert response.status_code == 200
+    assert response.json()["user"]["role"] == "employee"
+
+    db_session.refresh(accidental_admin)
+    assert accidental_admin.role_id == employee_role.id

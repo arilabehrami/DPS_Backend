@@ -11,7 +11,7 @@ from routes.feedback import router as feedback_router
 from routes.interaction_stat import router as interaction_stat_router
 from routes.message import router as message_router
 from routes.notification import router as notification_router
-from routes.openai_chat import router as openai_chat_router
+from routes.ollama_chat import router as ollama_chat_router
 from routes.persona import router as persona_router
 from routes.persona_history import router as persona_history_router
 from routes.persona_trait import router as persona_trait_router
@@ -38,7 +38,7 @@ ALL_ROUTERS = [
     interaction_stat_router,
     message_router,
     notification_router,
-    openai_chat_router,
+    ollama_chat_router,
     persona_router,
     persona_history_router,
     persona_trait_router,

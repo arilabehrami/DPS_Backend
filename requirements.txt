@@ -10,4 +10,3 @@ pydantic[email]
 redis
 pytest
 httpx
-openai

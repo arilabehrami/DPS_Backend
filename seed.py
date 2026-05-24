@@ -1,3 +1,9 @@
+from pathlib import Path
+import shutil
+from datetime import datetime
+
+from sqlalchemy import inspect
+
 from database import Base, engine, SessionLocal
 import models
 from models.persona import Persona
@@ -8,6 +14,60 @@ from models.workspace import Workspace
 from services.user import hash_password
 
 
+REQUIRED_SCHEMA_COLUMNS = {
+    "workspaces": {"created_at", "updated_at"},
+    "users": {"full_name", "hashed_password", "workspace_id", "role_id"},
+    "personas": {"workspace_id", "user_id"},
+    "personalities": {"persona_id", "workspace_id"},
+    "conversations": {"user_id", "personality_id", "workspace_id"},
+    "messages": {"conversation_id", "workspace_id"},
+}
+
+
+def sqlite_database_path() -> Path | None:
+    if engine.url.get_backend_name() != "sqlite":
+        return None
+
+    database = engine.url.database
+    if not database or database == ":memory:":
+        return None
+
+    path = Path(database)
+    if not path.is_absolute():
+        path = Path.cwd() / path
+    return path
+
+
+def backup_incompatible_sqlite_db() -> None:
+    db_path = sqlite_database_path()
+    if not db_path or not db_path.exists():
+        return
+
+    inspector = inspect(engine)
+    tables = set(inspector.get_table_names())
+    incompatible = False
+
+    for table_name, required_columns in REQUIRED_SCHEMA_COLUMNS.items():
+        if table_name not in tables:
+            incompatible = True
+            break
+
+        existing_columns = {column["name"] for column in inspector.get_columns(table_name)}
+        if not required_columns.issubset(existing_columns):
+            incompatible = True
+            break
+
+    if not incompatible:
+        return
+
+    engine.dispose()
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    backup_path = db_path.with_name(f"{db_path.stem}_backup_{timestamp}{db_path.suffix}")
+    shutil.move(str(db_path), str(backup_path))
+    print(f"Existing SQLite database was incompatible and was backed up to: {backup_path}")
+
+
+backup_incompatible_sqlite_db()
 Base.metadata.create_all(bind=engine)
 
 
@@ -30,7 +90,7 @@ def run_seed():
     try:
         workspace = get_or_create(db, Workspace, name="Default Workspace")
         admin_role = get_or_create(db, Role, name="admin")
-        user_role = get_or_create(db, Role, name="user")
+        employee_role = get_or_create(db, Role, name="employee")
 
         admin = db.query(User).filter(User.email == "admin@dps.com").first()
         if not admin:
@@ -61,7 +121,7 @@ def run_seed():
                 email="user@dps.com",
                 hashed_password=hash_password("user123"),
                 workspace_id=workspace.id,
-                role_id=user_role.id,
+                role_id=employee_role.id,
             )
             db.add(demo_user)
             db.commit()
@@ -70,7 +130,7 @@ def run_seed():
             demo_user.full_name = demo_user.full_name or "Demo User"
             demo_user.username = demo_user.username or "demo-user"
             demo_user.workspace_id = workspace.id
-            demo_user.role_id = user_role.id
+            demo_user.role_id = employee_role.id
             db.commit()
             db.refresh(demo_user)
 
@@ -80,8 +140,15 @@ def run_seed():
             .all()
         )
         for user in extra_admins:
-            user.role_id = user_role.id
+            user.role_id = employee_role.id
         if extra_admins:
+            db.commit()
+
+        legacy_user_role = db.query(Role).filter(Role.name == "user").first()
+        if legacy_user_role:
+            db.query(User).filter(User.role_id == legacy_user_role.id).update(
+                {"role_id": employee_role.id}
+            )
             db.commit()
 
         aura = get_or_create(
@@ -123,8 +190,8 @@ def run_seed():
         print(f"Workspace ID: {workspace.id}")
         print("Admin email: admin@dps.com")
         print("Admin password: admin123")
-        print("User email: user@dps.com")
-        print("User password: user123")
+        print("Employee email: user@dps.com")
+        print("Employee password: user123")
         print(f"Aura Persona ID: {aura.id}")
         print(f"Aura Personality ID: {personality.id}")
         print("--------------------------------")

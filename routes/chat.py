@@ -125,13 +125,14 @@ def generate_chat_response(
         f"You are {persona.name}, a helpful digital personality. "
         "Answer naturally and clearly in the same language as the user unless asked otherwise."
     )
-    cache_key = f"chat:{current_user.workspace_id}:{current_user.id}:{personality.id}:{data.model or 'default'}:{data.message}"
+    cache_key = f"chat:v2:{current_user.workspace_id}:{current_user.id}:{personality.id}:{data.model or 'default'}:{data.message}"
     cached = cache_service.get(cache_key)
     if cached:
         ai_text = cached["response"]
     else:
         ai_text = llm_service.generate(data.message, system_prompt, data.model)
-        cache_service.set(cache_key, {"response": ai_text}, ttl_seconds=300)
+        if not llm_service.is_unreachable_response(ai_text):
+            cache_service.set(cache_key, {"response": ai_text}, ttl_seconds=300)
 
     ai_msg = Message(
         conversation_id=conversation.id,
