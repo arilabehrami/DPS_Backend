@@ -1,4 +1,7 @@
 from models.persona import Persona
+from models.conversation import Conversation
+from models.message import Message
+from models.personality import Personality
 from models.role import Role
 from models.user import User
 from models.workspace import Workspace
@@ -104,3 +107,102 @@ def test_cannot_create_persona_in_another_workspace(client, db_session):
     )
 
     assert response.status_code == 403
+
+
+def test_user_sees_only_own_conversations_and_messages(client, db_session):
+    workspace = Workspace(name="Shared Workspace")
+    admin_role = Role(name="admin")
+    db_session.add_all([workspace, admin_role])
+    db_session.commit()
+
+    user_one = User(
+        full_name="User One",
+        workspace_id=workspace.id,
+        role_id=admin_role.id,
+        username="history-one",
+        email="history-one@example.com",
+        hashed_password=hash_password("secret123"),
+    )
+    user_two = User(
+        full_name="User Two",
+        workspace_id=workspace.id,
+        role_id=admin_role.id,
+        username="history-two",
+        email="history-two@example.com",
+        hashed_password=hash_password("secret123"),
+    )
+    db_session.add_all([user_one, user_two])
+    db_session.commit()
+    db_session.refresh(user_one)
+    db_session.refresh(user_two)
+
+    persona = Persona(
+        workspace_id=workspace.id,
+        user_id=user_one.id,
+        name="Aura",
+        description="Assistant",
+    )
+    db_session.add(persona)
+    db_session.commit()
+    db_session.refresh(persona)
+
+    personality = Personality(
+        persona_id=persona.id,
+        user_id=user_one.id,
+        workspace_id=workspace.id,
+        name="Aura",
+        description="Assistant",
+    )
+    db_session.add(personality)
+    db_session.commit()
+    db_session.refresh(personality)
+
+    own_conversation = Conversation(
+        user_id=user_one.id,
+        personality_id=personality.id,
+        workspace_id=workspace.id,
+        title="Own chat",
+    )
+    other_conversation = Conversation(
+        user_id=user_two.id,
+        personality_id=personality.id,
+        workspace_id=workspace.id,
+        title="Other chat",
+    )
+    db_session.add_all([own_conversation, other_conversation])
+    db_session.commit()
+    db_session.refresh(own_conversation)
+    db_session.refresh(other_conversation)
+
+    own_message = Message(
+        conversation_id=own_conversation.id,
+        workspace_id=workspace.id,
+        sender_type="user",
+        sender_user_id=user_one.id,
+        content="mine",
+    )
+    other_message = Message(
+        conversation_id=other_conversation.id,
+        workspace_id=workspace.id,
+        sender_type="user",
+        sender_user_id=user_two.id,
+        content="not mine",
+    )
+    db_session.add_all([own_message, other_message])
+    db_session.commit()
+
+    token = login(client, "history-one@example.com")
+
+    conversations_response = client.get(
+        "/conversations/",
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    messages_response = client.get(
+        "/messages/",
+        headers={"Authorization": f"Bearer {token}"},
+    )
+
+    assert conversations_response.status_code == 200
+    assert [item["id"] for item in conversations_response.json()] == [own_conversation.id]
+    assert messages_response.status_code == 200
+    assert [item["content"] for item in messages_response.json()] == ["mine"]

@@ -1,7 +1,9 @@
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
 
 from database import get_db
+from models.user import User
+from models.role import Role
 from schemas.user import UserCreate, UserUpdate, UserResponse
 from services.user import (
     create_user,
@@ -11,11 +13,31 @@ from services.user import (
     delete_user,
 )
 from routes.dependencies import require_roles
+from security.tenant import ensure_workspace_access
 
 router = APIRouter(
     prefix="/users",
     tags=["Users"],
 )
+
+
+def is_admin(user) -> bool:
+    return bool(user.role and user.role.name.lower() == "admin")
+
+
+def ensure_single_admin(db: Session, role_id: int, user_id: int | None = None) -> None:
+    role = db.query(Role).filter(Role.id == role_id).first()
+    if not role or role.name.lower() != "admin":
+        return
+
+    query = db.query(User).join(Role).filter(Role.name.ilike("admin"))
+    if user_id is not None:
+        query = query.filter(User.id != user_id)
+    if query.first():
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Only one admin user is allowed",
+        )
 
 
 @router.post("/", response_model=UserResponse)
@@ -24,6 +46,8 @@ def create_user_endpoint(
     db: Session = Depends(get_db),
     current_user=Depends(require_roles("admin")),
 ):
+    ensure_workspace_access(data.workspace_id, current_user)
+    ensure_single_admin(db, data.role_id)
     return create_user(db, data)
 
 
@@ -32,9 +56,15 @@ def list_users_endpoint(
     skip: int = Query(0, ge=0),
     limit: int = Query(100, ge=1, le=500),
     db: Session = Depends(get_db),
-    current_user=Depends(require_roles("admin", "user")),
+    current_user=Depends(require_roles("admin")),
 ):
-    return get_users(db, skip=skip, limit=limit)
+    return (
+        db.query(User)
+        .filter(User.workspace_id == current_user.workspace_id)
+        .offset(skip)
+        .limit(limit)
+        .all()
+    )
 
 
 @router.get("/{user_id}", response_model=UserResponse)
@@ -44,8 +74,13 @@ def get_user_endpoint(
     current_user=Depends(require_roles("admin", "user")),
 ):
     db_obj = get_user_by_id(db, user_id)
-    if not db_obj:
+    if not db_obj or db_obj.workspace_id != current_user.workspace_id:
         raise HTTPException(status_code=404, detail="User not found")
+    if not is_admin(current_user) and db_obj.id != current_user.id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Users can only access their own profile",
+        )
     return db_obj
 
 
@@ -56,9 +91,14 @@ def update_user_endpoint(
     db: Session = Depends(get_db),
     current_user=Depends(require_roles("admin")),
 ):
-    db_obj = update_user(db, user_id, data)
-    if not db_obj:
+    db_obj = get_user_by_id(db, user_id)
+    if not db_obj or db_obj.workspace_id != current_user.workspace_id:
         raise HTTPException(status_code=404, detail="User not found")
+    if data.workspace_id is not None:
+        ensure_workspace_access(data.workspace_id, current_user)
+    if data.role_id is not None:
+        ensure_single_admin(db, data.role_id, user_id=user_id)
+    db_obj = update_user(db, user_id, data)
     return db_obj
 
 
@@ -68,6 +108,9 @@ def delete_user_endpoint(
     db: Session = Depends(get_db),
     current_user=Depends(require_roles("admin")),
 ):
+    db_obj = get_user_by_id(db, user_id)
+    if not db_obj or db_obj.workspace_id != current_user.workspace_id:
+        raise HTTPException(status_code=404, detail="User not found")
     deleted = delete_user(db, user_id)
     if not deleted:
         raise HTTPException(status_code=404, detail="User not found")

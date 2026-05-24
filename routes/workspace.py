@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
 
 from database import get_db
@@ -18,6 +18,10 @@ router = APIRouter(
 )
 
 
+def is_admin(user) -> bool:
+    return bool(user.role and user.role.name.lower() == "admin")
+
+
 @router.post("/", response_model=WorkspaceResponse)
 def create_workspace_endpoint(
     data: WorkspaceCreate,
@@ -32,7 +36,7 @@ def list_workspaces_endpoint(
     skip: int = Query(0, ge=0),
     limit: int = Query(100, ge=1, le=500),
     db: Session = Depends(get_db),
-    current_user=Depends(require_roles("admin", "user")),
+    current_user=Depends(require_roles("admin")),
 ):
     return get_workspaces(db, skip=skip, limit=limit)
 
@@ -46,6 +50,11 @@ def get_workspace_endpoint(
     db_obj = get_workspace_by_id(db, workspace_id)
     if not db_obj:
         raise HTTPException(status_code=404, detail="Workspace not found")
+    if not is_admin(current_user) and workspace_id != current_user.workspace_id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Users can only access their own workspace",
+        )
     return db_obj
 
 

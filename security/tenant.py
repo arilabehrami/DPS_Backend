@@ -9,7 +9,7 @@ from models.persona import Persona
 from models.persona_history import PersonaHistory
 from models.persona_trait import PersonaTrait
 from models.personality import Personality
-from models.settings import Settings
+from models.setting import Setting
 from models.user import User
 
 
@@ -77,8 +77,7 @@ def ensure_persona_trait_access(
     if not trait:
         raise HTTPException(status_code=404, detail="Persona trait not found")
 
-    if trait.persona_id is not None:
-        ensure_persona_access(db, trait.persona_id, current_user)
+    ensure_personality_access(db, trait.personality_id, current_user)
     return trait
 
 
@@ -89,7 +88,7 @@ def ensure_persona_history_access(
     if not history:
         raise HTTPException(status_code=404, detail="Persona history not found")
 
-    ensure_persona_access(db, history.persona_id, current_user)
+    ensure_personality_access(db, history.personality_id, current_user)
     return history
 
 
@@ -114,11 +113,13 @@ def ensure_notification_access(
     return notification
 
 
-def ensure_settings_access(db: Session, settings_id: int, current_user: User) -> Settings:
-    settings = db.query(Settings).filter(Settings.id == settings_id).first()
-    if not settings:
-        raise HTTPException(status_code=404, detail="Settings not found")
+def ensure_setting_access(db: Session, setting_id: int, current_user: User) -> Setting:
+    setting = db.query(Setting).filter(Setting.id == setting_id).first()
+    if not setting:
+        raise HTTPException(status_code=404, detail="Setting not found")
 
-    if settings.user_id is not None:
-        ensure_user_access(db, settings.user_id, current_user)
-    return settings
+    if setting.workspace_id is not None:
+        ensure_workspace_access(setting.workspace_id, current_user)
+    if setting.user_id is not None:
+        ensure_user_access(db, setting.user_id, current_user)
+    return setting

@@ -2,6 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 
 from database import get_db
+from models.session import Session as UserSession
 from schemas.session import SessionCreate, SessionUpdate, SessionResponse
 from services.session import (
     create_session,
@@ -11,6 +12,7 @@ from services.session import (
     delete_session,
 )
 from routes.dependencies import require_roles
+from security.tenant import ensure_user_access
 
 router = APIRouter(
     prefix="/sessions",
@@ -24,6 +26,7 @@ def create_session_endpoint(
     db: Session = Depends(get_db),
     current_user=Depends(require_roles("admin")),
 ):
+    ensure_user_access(db, data.user_id, current_user)
     return create_session(db, data)
 
 
@@ -34,7 +37,13 @@ def list_sessions_endpoint(
     db: Session = Depends(get_db),
     current_user=Depends(require_roles("admin", "user")),
 ):
-    return get_sessions(db, skip=skip, limit=limit)
+    return (
+        db.query(UserSession)
+        .filter(UserSession.user_id == current_user.id)
+        .offset(skip)
+        .limit(limit)
+        .all()
+    )
 
 
 @router.get("/{session_id}", response_model=SessionResponse)
@@ -44,7 +53,7 @@ def get_session_endpoint(
     current_user=Depends(require_roles("admin", "user")),
 ):
     db_obj = get_session_by_id(db, session_id)
-    if not db_obj:
+    if not db_obj or db_obj.user_id != current_user.id:
         raise HTTPException(status_code=404, detail="Session not found")
     return db_obj
 
@@ -56,9 +65,12 @@ def update_session_endpoint(
     db: Session = Depends(get_db),
     current_user=Depends(require_roles("admin")),
 ):
-    db_obj = update_session(db, session_id, data)
-    if not db_obj:
+    db_obj = get_session_by_id(db, session_id)
+    if not db_obj or db_obj.user_id != current_user.id:
         raise HTTPException(status_code=404, detail="Session not found")
+    if data.user_id is not None:
+        ensure_user_access(db, data.user_id, current_user)
+    db_obj = update_session(db, session_id, data)
     return db_obj
 
 
@@ -68,6 +80,9 @@ def delete_session_endpoint(
     db: Session = Depends(get_db),
     current_user=Depends(require_roles("admin")),
 ):
+    db_obj = get_session_by_id(db, session_id)
+    if not db_obj or db_obj.user_id != current_user.id:
+        raise HTTPException(status_code=404, detail="Session not found")
     deleted = delete_session(db, session_id)
     if not deleted:
         raise HTTPException(status_code=404, detail="Session not found")

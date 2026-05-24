@@ -2,6 +2,8 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 
 from database import get_db
+from models.notification import Notification
+from models.user import User
 from schemas.notification import NotificationCreate, NotificationUpdate, NotificationResponse
 from services.notification import (
     create_notification,
@@ -11,6 +13,7 @@ from services.notification import (
     delete_notification,
 )
 from routes.dependencies import require_roles
+from security.tenant import ensure_user_access
 
 router = APIRouter(
     prefix="/notifications",
@@ -24,6 +27,7 @@ def create_notification_endpoint(
     db: Session = Depends(get_db),
     current_user=Depends(require_roles("admin")),
 ):
+    ensure_user_access(db, data.user_id, current_user)
     return create_notification(db, data)
 
 
@@ -34,7 +38,14 @@ def list_notifications_endpoint(
     db: Session = Depends(get_db),
     current_user=Depends(require_roles("admin", "user")),
 ):
-    return get_notifications(db, skip=skip, limit=limit)
+    return (
+        db.query(Notification)
+        .join(Notification.user)
+        .filter(User.workspace_id == current_user.workspace_id)
+        .offset(skip)
+        .limit(limit)
+        .all()
+    )
 
 
 @router.get("/{notification_id}", response_model=NotificationResponse)
@@ -44,7 +55,7 @@ def get_notification_endpoint(
     current_user=Depends(require_roles("admin", "user")),
 ):
     db_obj = get_notification_by_id(db, notification_id)
-    if not db_obj:
+    if not db_obj or db_obj.user.workspace_id != current_user.workspace_id:
         raise HTTPException(status_code=404, detail="Notification not found")
     return db_obj
 
@@ -56,9 +67,12 @@ def update_notification_endpoint(
     db: Session = Depends(get_db),
     current_user=Depends(require_roles("admin")),
 ):
-    db_obj = update_notification(db, notification_id, data)
-    if not db_obj:
+    db_obj = get_notification_by_id(db, notification_id)
+    if not db_obj or db_obj.user.workspace_id != current_user.workspace_id:
         raise HTTPException(status_code=404, detail="Notification not found")
+    if data.user_id is not None:
+        ensure_user_access(db, data.user_id, current_user)
+    db_obj = update_notification(db, notification_id, data)
     return db_obj
 
 
@@ -68,6 +82,9 @@ def delete_notification_endpoint(
     db: Session = Depends(get_db),
     current_user=Depends(require_roles("admin")),
 ):
+    db_obj = get_notification_by_id(db, notification_id)
+    if not db_obj or db_obj.user.workspace_id != current_user.workspace_id:
+        raise HTTPException(status_code=404, detail="Notification not found")
     deleted = delete_notification(db, notification_id)
     if not deleted:
         raise HTTPException(status_code=404, detail="Notification not found")
