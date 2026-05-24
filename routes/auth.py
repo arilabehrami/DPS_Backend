@@ -13,7 +13,7 @@ from models.user import User
 from models.workspace import Workspace
 from schemas.user import UserCreate
 from services.user import create_user, get_user_by_email
-from routes.dependencies import get_current_user
+from routes.dependencies import get_current_user, require_roles
 
 router = APIRouter(prefix="/auth", tags=["Auth"])
 
@@ -35,7 +35,7 @@ class RegisterRequest(BaseModel):
     email: EmailStr
     password: str
     workspace_id: int | None = 1
-    role_id: int | None = 1
+    role_id: int | None = None
 
 
 class UserFrontendResponse(BaseModel):
@@ -79,7 +79,7 @@ def frontend_user(user: User) -> UserFrontendResponse:
     )
 
 
-def ensure_default_workspace_and_role(db: Session, workspace_id: int | None, role_id: int | None) -> tuple[int, int]:
+def ensure_default_workspace_and_user_role(db: Session, workspace_id: int | None) -> tuple[int, int]:
     workspace = db.query(Workspace).filter(Workspace.id == (workspace_id or 1)).first()
     if not workspace:
         workspace = Workspace(name="Default Workspace")
@@ -87,11 +87,9 @@ def ensure_default_workspace_and_role(db: Session, workspace_id: int | None, rol
         db.commit()
         db.refresh(workspace)
 
-    role = db.query(Role).filter(Role.id == (role_id or 1)).first()
+    role = db.query(Role).filter(Role.name == "user").first()
     if not role:
-        role = db.query(Role).filter(Role.name == "admin").first()
-    if not role:
-        role = Role(name="admin")
+        role = Role(name="user")
         db.add(role)
         db.commit()
         db.refresh(role)
@@ -99,13 +97,13 @@ def ensure_default_workspace_and_role(db: Session, workspace_id: int | None, rol
     return workspace.id, role.id
 
 
-@router.post("/register", response_model=AuthResponse)
+@router.post("/register", response_model=AuthResponse, status_code=status.HTTP_201_CREATED)
 def register(data: RegisterRequest, db: Session = Depends(get_db)):
     existing_user = get_user_by_email(db, data.email)
     if existing_user:
         raise HTTPException(status_code=400, detail="Email already registered")
 
-    workspace_id, role_id = ensure_default_workspace_and_role(db, data.workspace_id, data.role_id)
+    workspace_id, role_id = ensure_default_workspace_and_user_role(db, data.workspace_id)
     username = data.username or data.email.split("@")[0]
     full_name = data.full_name or username
 
@@ -138,3 +136,8 @@ def login(data: LoginRequest, db: Session = Depends(get_db)):
 @router.get("/me", response_model=UserFrontendResponse)
 def me(current_user: User = Depends(get_current_user)):
     return frontend_user(current_user)
+
+
+@router.get("/admin-check")
+def admin_check(current_user: User = Depends(require_roles("admin"))):
+    return {"message": "Admin access granted", "user_id": current_user.id}

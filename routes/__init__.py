@@ -1,6 +1,8 @@
 from routes.api_key import router as api_key_router
 from routes.audit_log import router as audit_log_router
 from routes.auth import router as auth_router
+from routes.background_job import router as background_job_router
+from routes.cache import router as cache_router
 from routes.chat import router as chat_router
 from routes.conversation import router as conversation_router
 from routes.event_log import router as event_log_router
@@ -9,6 +11,7 @@ from routes.feedback import router as feedback_router
 from routes.interaction_stat import router as interaction_stat_router
 from routes.message import router as message_router
 from routes.notification import router as notification_router
+from routes.openai_chat import router as openai_chat_router
 from routes.persona import router as persona_router
 from routes.persona_history import router as persona_history_router
 from routes.persona_trait import router as persona_trait_router
@@ -25,6 +28,8 @@ ALL_ROUTERS = [
     api_key_router,
     audit_log_router,
     auth_router,
+    background_job_router,
+    cache_router,
     chat_router,
     conversation_router,
     event_log_router,
@@ -33,6 +38,7 @@ ALL_ROUTERS = [
     interaction_stat_router,
     message_router,
     notification_router,
+    openai_chat_router,
     persona_router,
     persona_history_router,
     persona_trait_router,

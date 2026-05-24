@@ -32,7 +32,7 @@ def list_roles_endpoint(
     skip: int = Query(0, ge=0),
     limit: int = Query(100, ge=1, le=500),
     db: Session = Depends(get_db),
-    current_user=Depends(require_roles("admin", "user")),
+    current_user=Depends(require_roles("admin")),
 ):
     return get_roles(db, skip=skip, limit=limit)
 
@@ -41,7 +41,7 @@ def list_roles_endpoint(
 def get_role_endpoint(
     role_id: int,
     db: Session = Depends(get_db),
-    current_user=Depends(require_roles("admin", "user")),
+    current_user=Depends(require_roles("admin")),
 ):
     db_obj = get_role_by_id(db, role_id)
     if not db_obj:

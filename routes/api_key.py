@@ -2,6 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 
 from database import get_db
+from models.api_key import ApiKey
 from schemas.api_key import ApiKeyCreate, ApiKeyUpdate, ApiKeyResponse
 from services.api_key import (
     create_api_key,
@@ -11,6 +12,7 @@ from services.api_key import (
     delete_api_key,
 )
 from routes.dependencies import require_roles
+from security.tenant import ensure_user_access
 
 router = APIRouter(
     prefix="/api-keys",
@@ -24,6 +26,7 @@ def create_api_key_endpoint(
     db: Session = Depends(get_db),
     current_user=Depends(require_roles("admin")),
 ):
+    ensure_user_access(db, data.user_id, current_user)
     return create_api_key(db, data)
 
 
@@ -34,7 +37,13 @@ def list_api_keys_endpoint(
     db: Session = Depends(get_db),
     current_user=Depends(require_roles("admin", "user")),
 ):
-    return get_api_keys(db, skip=skip, limit=limit)
+    return (
+        db.query(ApiKey)
+        .filter(ApiKey.user_id == current_user.id)
+        .offset(skip)
+        .limit(limit)
+        .all()
+    )
 
 
 @router.get("/{api_key_id}", response_model=ApiKeyResponse)
@@ -44,7 +53,7 @@ def get_api_key_endpoint(
     current_user=Depends(require_roles("admin", "user")),
 ):
     db_obj = get_api_key_by_id(db, api_key_id)
-    if not db_obj:
+    if not db_obj or db_obj.user_id != current_user.id:
         raise HTTPException(status_code=404, detail="ApiKey not found")
     return db_obj
 
@@ -56,9 +65,12 @@ def update_api_key_endpoint(
     db: Session = Depends(get_db),
     current_user=Depends(require_roles("admin")),
 ):
-    db_obj = update_api_key(db, api_key_id, data)
-    if not db_obj:
+    db_obj = get_api_key_by_id(db, api_key_id)
+    if not db_obj or db_obj.user_id != current_user.id:
         raise HTTPException(status_code=404, detail="ApiKey not found")
+    if data.user_id is not None:
+        ensure_user_access(db, data.user_id, current_user)
+    db_obj = update_api_key(db, api_key_id, data)
     return db_obj
 
 
@@ -68,6 +80,9 @@ def delete_api_key_endpoint(
     db: Session = Depends(get_db),
     current_user=Depends(require_roles("admin")),
 ):
+    db_obj = get_api_key_by_id(db, api_key_id)
+    if not db_obj or db_obj.user_id != current_user.id:
+        raise HTTPException(status_code=404, detail="ApiKey not found")
     deleted = delete_api_key(db, api_key_id)
     if not deleted:
         raise HTTPException(status_code=404, detail="ApiKey not found")

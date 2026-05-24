@@ -37,6 +37,7 @@ def test_register_hashes_password_and_returns_token(client, db_session):
 
     user = db_session.query(User).filter(User.email == "admin@example.com").first()
     assert user is not None
+    assert user.role.name == "user"
     assert user.hashed_password != "secret123"
     assert verify_password("secret123", user.hashed_password)
 
@@ -85,3 +86,128 @@ def test_admin_check_requires_admin_role(client, db_session):
     )
 
     assert response.status_code == 403
+
+
+def test_admin_can_list_users(client, db_session):
+    workspace = Workspace(name="Main Workspace")
+    admin_role = Role(name="admin")
+    user_role = Role(name="user")
+    db_session.add_all([workspace, admin_role, user_role])
+    db_session.commit()
+
+    admin = User(
+        full_name="Admin User",
+        workspace_id=workspace.id,
+        role_id=admin_role.id,
+        username="admin-list",
+        email="admin-list@example.com",
+        hashed_password=hash_password("secret123"),
+    )
+    normal_user = User(
+        full_name="Normal User",
+        workspace_id=workspace.id,
+        role_id=user_role.id,
+        username="normal-list",
+        email="normal-list@example.com",
+        hashed_password=hash_password("secret123"),
+    )
+    db_session.add_all([admin, normal_user])
+    db_session.commit()
+
+    login_response = client.post(
+        "/auth/login",
+        json={"email": "admin-list@example.com", "password": "secret123"},
+    )
+    token = login_response.json()["access_token"]
+
+    response = client.get(
+        "/users/",
+        headers={"Authorization": f"Bearer {token}"},
+    )
+
+    assert response.status_code == 200
+    assert len(response.json()) == 2
+
+
+def test_user_cannot_list_or_read_other_users(client, db_session):
+    workspace = Workspace(name="Main Workspace")
+    user_role = Role(name="user")
+    db_session.add_all([workspace, user_role])
+    db_session.commit()
+
+    user_one = User(
+        full_name="User One",
+        workspace_id=workspace.id,
+        role_id=user_role.id,
+        username="user-one-auth",
+        email="one-auth@example.com",
+        hashed_password=hash_password("secret123"),
+    )
+    user_two = User(
+        full_name="User Two",
+        workspace_id=workspace.id,
+        role_id=user_role.id,
+        username="user-two-auth",
+        email="two-auth@example.com",
+        hashed_password=hash_password("secret123"),
+    )
+    db_session.add_all([user_one, user_two])
+    db_session.commit()
+    db_session.refresh(user_two)
+
+    login_response = client.post(
+        "/auth/login",
+        json={"email": "one-auth@example.com", "password": "secret123"},
+    )
+    token = login_response.json()["access_token"]
+
+    list_response = client.get(
+        "/users/",
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    other_user_response = client.get(
+        f"/users/{user_two.id}",
+        headers={"Authorization": f"Bearer {token}"},
+    )
+
+    assert list_response.status_code == 403
+    assert other_user_response.status_code == 403
+
+
+def test_cannot_create_second_admin(client, db_session):
+    workspace = Workspace(name="Main Workspace")
+    admin_role = Role(name="admin")
+    db_session.add_all([workspace, admin_role])
+    db_session.commit()
+
+    existing_admin = User(
+        full_name="Existing Admin",
+        workspace_id=workspace.id,
+        role_id=admin_role.id,
+        username="existing-admin",
+        email="existing-admin@example.com",
+        hashed_password=hash_password("secret123"),
+    )
+    db_session.add(existing_admin)
+    db_session.commit()
+
+    login_response = client.post(
+        "/auth/login",
+        json={"email": "existing-admin@example.com", "password": "secret123"},
+    )
+    token = login_response.json()["access_token"]
+
+    response = client.post(
+        "/users/",
+        headers={"Authorization": f"Bearer {token}"},
+        json={
+            "full_name": "Second Admin",
+            "username": "second-admin",
+            "email": "second-admin@example.com",
+            "password": "secret123",
+            "workspace_id": workspace.id,
+            "role_id": admin_role.id,
+        },
+    )
+
+    assert response.status_code == 400

@@ -2,6 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 
 from database import get_db
+from models.interaction_stat import InteractionStat
 from schemas.interaction_stat import InteractionStatCreate, InteractionStatUpdate, InteractionStatResponse
 from services.interaction_stat import (
     create_interaction_stat,
@@ -11,6 +12,7 @@ from services.interaction_stat import (
     delete_interaction_stat,
 )
 from routes.dependencies import require_roles
+from security.tenant import ensure_conversation_access, ensure_personality_access, ensure_user_access, ensure_workspace_access
 
 router = APIRouter(
     prefix="/interaction-stats",
@@ -24,6 +26,11 @@ def create_interaction_stat_endpoint(
     db: Session = Depends(get_db),
     current_user=Depends(require_roles("admin")),
 ):
+    ensure_workspace_access(data.workspace_id, current_user)
+    ensure_user_access(db, data.user_id, current_user)
+    ensure_personality_access(db, data.personality_id, current_user)
+    if data.conversation_id is not None:
+        ensure_conversation_access(db, data.conversation_id, current_user)
     return create_interaction_stat(db, data)
 
 
@@ -34,7 +41,7 @@ def list_interaction_stats_endpoint(
     db: Session = Depends(get_db),
     current_user=Depends(require_roles("admin", "user")),
 ):
-    return get_interaction_stats(db, skip=skip, limit=limit)
+    return db.query(InteractionStat).filter(InteractionStat.workspace_id == current_user.workspace_id).offset(skip).limit(limit).all()
 
 
 @router.get("/{interaction_stat_id}", response_model=InteractionStatResponse)
@@ -44,7 +51,7 @@ def get_interaction_stat_endpoint(
     current_user=Depends(require_roles("admin", "user")),
 ):
     db_obj = get_interaction_stat_by_id(db, interaction_stat_id)
-    if not db_obj:
+    if not db_obj or db_obj.workspace_id != current_user.workspace_id:
         raise HTTPException(status_code=404, detail="InteractionStat not found")
     return db_obj
 
@@ -56,9 +63,18 @@ def update_interaction_stat_endpoint(
     db: Session = Depends(get_db),
     current_user=Depends(require_roles("admin")),
 ):
-    db_obj = update_interaction_stat(db, interaction_stat_id, data)
-    if not db_obj:
+    db_obj = get_interaction_stat_by_id(db, interaction_stat_id)
+    if not db_obj or db_obj.workspace_id != current_user.workspace_id:
         raise HTTPException(status_code=404, detail="InteractionStat not found")
+    if data.workspace_id is not None:
+        ensure_workspace_access(data.workspace_id, current_user)
+    if data.user_id is not None:
+        ensure_user_access(db, data.user_id, current_user)
+    if data.personality_id is not None:
+        ensure_personality_access(db, data.personality_id, current_user)
+    if data.conversation_id is not None:
+        ensure_conversation_access(db, data.conversation_id, current_user)
+    db_obj = update_interaction_stat(db, interaction_stat_id, data)
     return db_obj
 
 
@@ -68,6 +84,9 @@ def delete_interaction_stat_endpoint(
     db: Session = Depends(get_db),
     current_user=Depends(require_roles("admin")),
 ):
+    db_obj = get_interaction_stat_by_id(db, interaction_stat_id)
+    if not db_obj or db_obj.workspace_id != current_user.workspace_id:
+        raise HTTPException(status_code=404, detail="InteractionStat not found")
     deleted = delete_interaction_stat(db, interaction_stat_id)
     if not deleted:
         raise HTTPException(status_code=404, detail="InteractionStat not found")
