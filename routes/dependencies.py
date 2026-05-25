@@ -17,6 +17,8 @@ oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/login")
 
 ROLE_ALIASES = {
     "user": "employee",
+    "client": "employee",
+    "administrator": "admin",
 }
 
 
