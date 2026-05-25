@@ -22,6 +22,7 @@ class ChatGenerateRequest(BaseModel):
     conversation_id: int | None = None
     message: str
     model: str | None = None
+    response_language: str | None = "en"
 
 
 class ChatGenerateResponse(BaseModel):
@@ -81,6 +82,27 @@ def get_or_create_personality(
     db.commit()
     db.refresh(personality)
     return personality
+
+
+LANGUAGE_NAMES = {
+    "en": "English",
+    "sq": "Albanian",
+    "es": "Spanish",
+    "fr": "French",
+    "de": "German",
+}
+
+UNREACHABLE_MESSAGES = {
+    "en": "Ollama AI service is not reachable. Start Ollama with `ollama run phi3`. Your message was: {message}",
+    "sq": "Sherbimi Ollama AI nuk eshte i arritshem. Nise Ollama me `ollama run phi3`. Mesazhi yt ishte: {message}",
+    "es": "El servicio Ollama AI no esta disponible. Inicia Ollama con `ollama run phi3`. Tu mensaje fue: {message}",
+    "fr": "Le service Ollama AI n'est pas disponible. Lancez Ollama avec `ollama run phi3`. Votre message etait : {message}",
+    "de": "Der Ollama AI-Dienst ist nicht erreichbar. Starte Ollama mit `ollama run phi3`. Deine Nachricht war: {message}",
+}
+
+
+def normalize_language(language: str | None) -> str:
+    return language if language in LANGUAGE_NAMES else "en"
 
 
 @router.post("/generate", response_model=ChatGenerateResponse)
@@ -144,17 +166,23 @@ def generate_chat_response(
     )
     db.add(user_msg)
 
+    response_language = normalize_language(data.response_language)
+    language_name = LANGUAGE_NAMES[response_language]
     system_prompt = (
         f"You are {persona.name}, a helpful digital personality. "
-        "Answer naturally and clearly in the same language as the user unless asked otherwise."
+        f"Always answer naturally and clearly in {language_name}. "
+        "If the user writes in another language, still reply in the selected response language."
     )
-    cache_key = f"chat:v2:{current_user.workspace_id}:{current_user.id}:{personality.id}:{data.model or 'default'}:{data.message}"
+    cache_key = f"chat:v3:{current_user.workspace_id}:{current_user.id}:{personality.id}:{response_language}:{data.model or 'default'}:{data.message}"
     cached = cache_service.get(cache_key)
     if cached:
         ai_text = cached["response"]
     else:
         ai_text = llm_service.generate(data.message, system_prompt, data.model)
-        if not llm_service.is_unreachable_response(ai_text):
+        is_unreachable = llm_service.is_unreachable_response(ai_text)
+        if is_unreachable:
+            ai_text = UNREACHABLE_MESSAGES[response_language].format(message=data.message)
+        if not is_unreachable:
             cache_service.set(cache_key, {"response": ai_text}, ttl_seconds=300)
 
     ai_msg = Message(
