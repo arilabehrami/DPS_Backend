@@ -5,8 +5,8 @@ from pydantic import BaseModel, ConfigDict
 
 class RatingBase(BaseModel):
     user_id: int
-    personality_id: int
-    conversation_id: int
+    personality_id: Optional[int] = None
+    conversation_id: Optional[int] = None
     workspace_id: int
     score: int
     comment: Optional[str] = None
