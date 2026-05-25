@@ -6,7 +6,7 @@ from database import get_db
 from models.persona import Persona
 from schemas.persona import PersonaCreate, PersonaUpdate, PersonaResponse
 from services.persona import create_persona, get_persona_by_id, update_persona, delete_persona
-from routes.dependencies import require_roles
+from routes.dependencies import normalize_role_name, require_roles
 from security.tenant import ensure_workspace_access
 
 router = APIRouter(prefix="/personas", tags=["Personas"])
@@ -16,10 +16,13 @@ router = APIRouter(prefix="/personas", tags=["Personas"])
 def create_persona_endpoint(
     data: PersonaCreate,
     db: Session = Depends(get_db),
-    current_user=Depends(require_roles("admin")),
+    current_user=Depends(require_roles("admin", "user")),
 ):
+    is_admin = normalize_role_name(current_user.role.name if current_user.role else None) == "admin"
     ensure_workspace_access(data.workspace_id, current_user)
-    if data.user_id is None:
+    if not is_admin:
+        data.user_id = current_user.id
+    elif data.user_id is None:
         data.user_id = current_user.id
     return create_persona(db, data)
 
@@ -65,13 +68,20 @@ def update_persona_endpoint(
     persona_id: int,
     data: PersonaUpdate,
     db: Session = Depends(get_db),
-    current_user=Depends(require_roles("admin")),
+    current_user=Depends(require_roles("admin", "user")),
 ):
+    is_admin = normalize_role_name(current_user.role.name if current_user.role else None) == "admin"
     db_obj = get_persona_by_id(db, persona_id)
     if not db_obj or db_obj.workspace_id != current_user.workspace_id:
         raise HTTPException(status_code=404, detail="Persona not found")
+    if not is_admin and db_obj.user_id != current_user.id:
+        raise HTTPException(status_code=403, detail="You can only manage your own personas")
     if data.workspace_id is not None:
         ensure_workspace_access(data.workspace_id, current_user)
+    if not is_admin:
+        if data.user_id is not None and data.user_id != current_user.id:
+            raise HTTPException(status_code=403, detail="You can only manage your own personas")
+        data.user_id = current_user.id
     db_obj = update_persona(db, persona_id, data)
     return db_obj
 
@@ -80,11 +90,14 @@ def update_persona_endpoint(
 def delete_persona_endpoint(
     persona_id: int,
     db: Session = Depends(get_db),
-    current_user=Depends(require_roles("admin")),
+    current_user=Depends(require_roles("admin", "user")),
 ):
+    is_admin = normalize_role_name(current_user.role.name if current_user.role else None) == "admin"
     db_obj = get_persona_by_id(db, persona_id)
     if not db_obj or db_obj.workspace_id != current_user.workspace_id:
         raise HTTPException(status_code=404, detail="Persona not found")
+    if not is_admin and db_obj.user_id != current_user.id:
+        raise HTTPException(status_code=403, detail="You can only manage your own personas")
     deleted = delete_persona(db, persona_id)
     if not deleted:
         raise HTTPException(status_code=404, detail="Persona not found")
