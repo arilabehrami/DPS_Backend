@@ -27,7 +27,13 @@ class UserUpdate(BaseModel):
 class UserResponse(UserBase):
     id: int
     hashed_password: str
+    last_rate: Optional[int] = None
+    latest_rating: Optional[int] = None
+    rating: Optional[int] = None
+    lastRate: Optional[int] = None
+    latestRating: Optional[int] = None
     created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None
 
     model_config = ConfigDict(from_attributes=True)
+
