@@ -1,7 +1,10 @@
 from fastapi import APIRouter, Depends, HTTPException, Query, status
+from sqlalchemy import desc
 from sqlalchemy.orm import Session
 
 from database import get_db
+from models.feedback import Feedback
+from models.rating import Rating
 from models.user import User
 from models.role import Role
 from schemas.user import UserCreate, UserUpdate, UserResponse
@@ -12,7 +15,7 @@ from services.user import (
     update_user,
     delete_user,
 )
-from routes.dependencies import require_roles
+from routes.dependencies import normalize_role_name, require_roles
 from security.tenant import ensure_workspace_access
 
 router = APIRouter(
@@ -22,7 +25,7 @@ router = APIRouter(
 
 
 def is_admin(user) -> bool:
-    return bool(user.role and user.role.name.lower() == "admin")
+    return normalize_role_name(user.role.name if user.role else None) == "admin"
 
 
 def ensure_single_admin(db: Session, role_id: int, user_id: int | None = None) -> None:
@@ -38,6 +41,32 @@ def ensure_single_admin(db: Session, role_id: int, user_id: int | None = None) -
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Only one admin user is allowed",
         )
+
+
+def attach_latest_rating(db: Session, user: User) -> User:
+    latest_feedback = (
+        db.query(Feedback)
+        .filter(Feedback.user_id == user.id, Feedback.workspace_id == user.workspace_id)
+        .order_by(desc(Feedback.created_at), desc(Feedback.id))
+        .first()
+    )
+    latest_rating_value = latest_feedback.rating if latest_feedback else None
+
+    if latest_rating_value is None:
+        latest_rating = (
+            db.query(Rating)
+            .filter(Rating.user_id == user.id, Rating.workspace_id == user.workspace_id)
+            .order_by(desc(Rating.created_at), desc(Rating.id))
+            .first()
+        )
+        latest_rating_value = latest_rating.score if latest_rating else None
+
+    user.last_rate = latest_rating_value
+    user.latest_rating = latest_rating_value
+    user.rating = latest_rating_value
+    user.lastRate = latest_rating_value
+    user.latestRating = latest_rating_value
+    return user
 
 
 @router.post("/", response_model=UserResponse)
@@ -58,13 +87,14 @@ def list_users_endpoint(
     db: Session = Depends(get_db),
     current_user=Depends(require_roles("admin")),
 ):
-    return (
+    users = (
         db.query(User)
         .filter(User.workspace_id == current_user.workspace_id)
         .offset(skip)
         .limit(limit)
         .all()
     )
+    return [attach_latest_rating(db, user) for user in users]
 
 
 @router.get("/{user_id}", response_model=UserResponse)
@@ -81,7 +111,7 @@ def get_user_endpoint(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Users can only access their own profile",
         )
-    return db_obj
+    return attach_latest_rating(db, db_obj)
 
 
 @router.put("/{user_id}", response_model=UserResponse)
