@@ -9,8 +9,8 @@ class Rating(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
-    personality_id = Column(Integer, ForeignKey("personalities.id"), nullable=False)
-    conversation_id = Column(Integer, ForeignKey("conversations.id"), nullable=False)
+    personality_id = Column(Integer, ForeignKey("personalities.id"), nullable=True)
+    conversation_id = Column(Integer, ForeignKey("conversations.id"), nullable=True)
     workspace_id = Column(Integer, ForeignKey("workspaces.id"), nullable=False)
     score = Column(Integer, nullable=False)
     comment = Column(Text, nullable=True)
