@@ -1,4 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException, Query
+from sqlalchemy import desc
 from sqlalchemy.orm import Session
 
 from database import get_db
@@ -11,7 +12,7 @@ from services.feedback import (
     update_feedback,
     delete_feedback,
 )
-from routes.dependencies import require_roles
+from routes.dependencies import normalize_role_name, require_roles
 from security.tenant import ensure_conversation_access, ensure_user_access, ensure_workspace_access
 
 router = APIRouter(
@@ -24,10 +25,16 @@ router = APIRouter(
 def create_feedback_endpoint(
     data: FeedbackCreate,
     db: Session = Depends(get_db),
-    current_user=Depends(require_roles("admin")),
+    current_user=Depends(require_roles("admin", "user")),
 ):
+    is_admin = normalize_role_name(current_user.role.name if current_user.role else None) == "admin"
+    if not is_admin:
+        data.user_id = current_user.id
+        data.workspace_id = current_user.workspace_id
     ensure_workspace_access(data.workspace_id, current_user)
     ensure_user_access(db, data.user_id, current_user)
+    if not is_admin and data.user_id != current_user.id:
+        raise HTTPException(status_code=403, detail="Cannot create feedback for another user")
     ensure_conversation_access(db, data.conversation_id, current_user)
     return create_feedback(db, data)
 
@@ -39,7 +46,11 @@ def list_feedbacks_endpoint(
     db: Session = Depends(get_db),
     current_user=Depends(require_roles("admin", "user")),
 ):
-    return db.query(Feedback).filter(Feedback.workspace_id == current_user.workspace_id).offset(skip).limit(limit).all()
+    is_admin = normalize_role_name(current_user.role.name if current_user.role else None) == "admin"
+    query = db.query(Feedback).filter(Feedback.workspace_id == current_user.workspace_id)
+    if not is_admin:
+        query = query.filter(Feedback.user_id == current_user.id)
+    return query.order_by(desc(Feedback.created_at), desc(Feedback.id)).offset(skip).limit(limit).all()
 
 
 @router.get("/{feedback_id}", response_model=FeedbackResponse)
