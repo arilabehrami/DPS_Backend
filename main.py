@@ -1,9 +1,12 @@
 import logging
+import os
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from database import Base, engine
+from middleware.authentication_middleware import AuthenticationMiddleware
+from middleware.https_redirect_middleware import HTTPSRedirectWithProxyMiddleware
 from middleware.logging_middleware import LoggingMiddleware
 
 # Import models so SQLAlchemy can register all tables before create_all
@@ -24,7 +27,11 @@ app = FastAPI(
     version="1.0.0",
 )
 
+app.add_middleware(AuthenticationMiddleware)
 app.add_middleware(LoggingMiddleware)
+
+if os.getenv("FORCE_HTTPS", "false").lower() in {"1", "true", "yes", "on"}:
+    app.add_middleware(HTTPSRedirectWithProxyMiddleware)
 
 app.add_middleware(
     CORSMiddleware,
