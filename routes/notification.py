@@ -29,7 +29,7 @@ def is_admin(user: User) -> bool:
 def create_notification_endpoint(
     data: NotificationCreate,
     db: Session = Depends(get_db),
-    current_user=Depends(require_roles("admin", "employee", "client")),
+    current_user=Depends(require_roles("admin", "employee", "client", "user")),
 ):
     if not is_admin(current_user):
         data.user_id = current_user.id
@@ -42,14 +42,12 @@ def list_notifications_endpoint(
     page: int = Query(1, ge=1),
     page_size: int = Query(20, ge=1, le=200),
     db: Session = Depends(get_db),
-    current_user=Depends(require_roles("admin", "employee", "client")),
+    current_user=Depends(require_roles("admin", "employee", "client", "user")),
 ):
     offset = (page - 1) * page_size
     return (
         db.query(Notification)
-        .join(Notification.user)
         .filter(
-            User.workspace_id == current_user.workspace_id,
             Notification.user_id == current_user.id,
         )
         .order_by(Notification.created_at.desc(), Notification.id.desc())
@@ -63,7 +61,7 @@ def list_notifications_endpoint(
 def get_notification_endpoint(
     notification_id: int,
     db: Session = Depends(get_db),
-    current_user=Depends(require_roles("admin", "employee", "client")),
+    current_user=Depends(require_roles("admin", "employee", "client", "user")),
 ):
     db_obj = get_notification_by_id(db, notification_id)
     if not db_obj or db_obj.user.workspace_id != current_user.workspace_id:
@@ -78,7 +76,7 @@ def update_notification_endpoint(
     notification_id: int,
     data: NotificationUpdate,
     db: Session = Depends(get_db),
-    current_user=Depends(require_roles("admin", "employee", "client")),
+    current_user=Depends(require_roles("admin", "employee", "client", "user")),
 ):
     db_obj = get_notification_by_id(db, notification_id)
     if not db_obj or db_obj.user.workspace_id != current_user.workspace_id:
@@ -99,7 +97,7 @@ def update_notification_endpoint(
 def delete_notification_endpoint(
     notification_id: int,
     db: Session = Depends(get_db),
-    current_user=Depends(require_roles("admin", "employee", "client")),
+    current_user=Depends(require_roles("admin", "employee", "client", "user")),
 ):
     db_obj = get_notification_by_id(db, notification_id)
     if not db_obj or db_obj.user.workspace_id != current_user.workspace_id:
@@ -115,7 +113,7 @@ def delete_notification_endpoint(
 @router.patch("/read-all")
 def mark_all_notifications_read(
     db: Session = Depends(get_db),
-    current_user=Depends(require_roles("admin", "employee", "client")),
+    current_user=Depends(require_roles("admin", "employee", "client", "user")),
 ):
     updated_count = (
         db.query(Notification)
