@@ -65,7 +65,7 @@ PUBLIC_REGISTER_WORKSPACE_ID=1
 OLLAMA_BASE_URL=http://localhost:11434
 OLLAMA_MODEL=qwen2.5:1.5b
 
-# Redis (optional)
+# Redis
 REDIS_URL=redis://localhost:6379/0
 CACHE_TTL_SECONDS=60
 
