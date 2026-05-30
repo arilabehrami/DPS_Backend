@@ -16,7 +16,7 @@ router = APIRouter(prefix="/personas", tags=["Personas"])
 def create_persona_endpoint(
     data: PersonaCreate,
     db: Session = Depends(get_db),
-    current_user=Depends(require_roles("admin", "user")),
+    current_user=Depends(require_roles("admin", "employee", "client")),
 ):
     is_admin = normalize_role_name(current_user.role.name if current_user.role else None) == "admin"
     ensure_workspace_access(data.workspace_id, current_user)
@@ -35,7 +35,7 @@ def list_personas_endpoint(
     skip: int = Query(0, ge=0),
     limit: int = Query(100, ge=1, le=500),
     db: Session = Depends(get_db),
-    current_user=Depends(require_roles("admin", "user")),
+    current_user=Depends(require_roles("admin", "employee", "client")),
 ):
     query = db.query(Persona).filter(Persona.workspace_id == current_user.workspace_id)
 
@@ -55,7 +55,7 @@ def list_personas_endpoint(
 def get_persona_endpoint(
     persona_id: int,
     db: Session = Depends(get_db),
-    current_user=Depends(require_roles("admin", "user")),
+    current_user=Depends(require_roles("admin", "employee", "client")),
 ):
     db_obj = get_persona_by_id(db, persona_id)
     if not db_obj or db_obj.workspace_id != current_user.workspace_id:
@@ -68,7 +68,7 @@ def update_persona_endpoint(
     persona_id: int,
     data: PersonaUpdate,
     db: Session = Depends(get_db),
-    current_user=Depends(require_roles("admin", "user")),
+    current_user=Depends(require_roles("admin", "employee", "client")),
 ):
     is_admin = normalize_role_name(current_user.role.name if current_user.role else None) == "admin"
     db_obj = get_persona_by_id(db, persona_id)
@@ -90,7 +90,7 @@ def update_persona_endpoint(
 def delete_persona_endpoint(
     persona_id: int,
     db: Session = Depends(get_db),
-    current_user=Depends(require_roles("admin", "user")),
+    current_user=Depends(require_roles("admin", "employee", "client")),
 ):
     is_admin = normalize_role_name(current_user.role.name if current_user.role else None) == "admin"
     db_obj = get_persona_by_id(db, persona_id)

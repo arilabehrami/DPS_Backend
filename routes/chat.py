@@ -110,7 +110,7 @@ def generate_chat_response(
     data: ChatGenerateRequest,
     background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
-    current_user=Depends(require_roles("admin", "user")),
+    current_user=Depends(require_roles("admin", "employee", "client")),
 ):
     if not data.message.strip():
         raise HTTPException(status_code=400, detail="Message cannot be empty")

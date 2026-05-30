@@ -1,5 +1,9 @@
 from passlib.context import CryptContext
 from sqlalchemy.orm import Session
+from models.audit_log import AuditLog
+from models.email_message import EmailMessage
+from models.email_send_audit import EmailSendAudit
+from models.event_log import EventLog
 from models.user import User
 from schemas.user import UserCreate, UserUpdate
 
@@ -66,6 +70,15 @@ def delete_user(db: Session, user_id: int) -> bool:
     if not db_obj:
         return False
 
+    # Keep FK constraints happy on schemas where logs require non-null user_id.
+    db.query(EmailMessage).filter(
+        (EmailMessage.sender_user_id == user_id) | (EmailMessage.recipient_user_id == user_id)
+    ).delete(synchronize_session=False)
+    db.query(EmailSendAudit).filter(
+        (EmailSendAudit.sender_id == user_id) | (EmailSendAudit.recipient_id == user_id)
+    ).delete(synchronize_session=False)
+    db.query(EventLog).filter(EventLog.user_id == user_id).delete(synchronize_session=False)
+    db.query(AuditLog).filter(AuditLog.user_id == user_id).delete(synchronize_session=False)
     db.delete(db_obj)
     db.commit()
     return True

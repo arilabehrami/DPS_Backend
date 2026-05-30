@@ -25,15 +25,16 @@ router = APIRouter(
 def create_rating_endpoint(
     data: RatingCreate,
     db: Session = Depends(get_db),
-    current_user=Depends(require_roles("admin", "user")),
+    current_user=Depends(require_roles("admin", "employee", "client")),
 ):
+    # Always bind rating to the authenticated user so frontend payload cannot
+    # accidentally store ratings under another account.
     is_admin = normalize_role_name(current_user.role.name if current_user.role else None) == "admin"
-    if not is_admin:
-        data.user_id = current_user.id
-        data.workspace_id = current_user.workspace_id
+    data.user_id = current_user.id
+    data.workspace_id = current_user.workspace_id
     ensure_workspace_access(data.workspace_id, current_user)
     ensure_user_access(db, data.user_id, current_user)
-    if not is_admin and data.user_id != current_user.id:
+    if data.user_id != current_user.id:
         raise HTTPException(status_code=403, detail="Cannot rate for another user")
     if data.personality_id is not None:
         ensure_personality_access(db, data.personality_id, current_user)
@@ -48,7 +49,7 @@ def list_ratings_endpoint(
     skip: int = Query(0, ge=0),
     limit: int = Query(100, ge=1, le=500),
     db: Session = Depends(get_db),
-    current_user=Depends(require_roles("admin", "user")),
+    current_user=Depends(require_roles("admin", "employee", "client")),
 ):
     is_admin = normalize_role_name(current_user.role.name if current_user.role else None) == "admin"
     query = db.query(Rating).filter(Rating.workspace_id == current_user.workspace_id)

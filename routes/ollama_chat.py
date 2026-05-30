@@ -19,7 +19,7 @@ class OllamaChatRequest(BaseModel):
 def ollama_chat(
     data: OllamaChatRequest,
     background_tasks: BackgroundTasks,
-    current_user=Depends(require_roles("admin", "user")),
+    current_user=Depends(require_roles("admin", "employee", "client")),
 ):
     cache_key = f"llm:v2:{current_user.workspace_id}:{data.model or 'default'}:{data.message}"
     cached = cache_service.get(cache_key)

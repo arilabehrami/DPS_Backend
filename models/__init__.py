@@ -18,3 +18,8 @@ from models.persona_history import PersonaHistory
 from models.setting import Setting
 from models.experiment import Experiment
 from models.rating import Rating
+from models.registration_otp import RegistrationOTP
+from models.email_send_audit import EmailSendAudit
+from models.email_message import EmailMessage
+from models.password_reset_otp import PasswordResetOTP
+from models.password_change_otp import PasswordChangeOTP

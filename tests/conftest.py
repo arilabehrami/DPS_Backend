@@ -23,11 +23,7 @@ engine = create_engine(
     poolclass=StaticPool,
 )
 
-TestingSessionLocal = sessionmaker(
-    autocommit=False,
-    autoflush=False,
-    bind=engine,
-)
+TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 
 def override_get_db():
@@ -42,7 +38,10 @@ app.dependency_overrides[get_db] = override_get_db
 
 
 @pytest.fixture(autouse=True)
-def reset_database():
+def reset_database(request):
+    if request.node.get_closest_marker("no_db"):
+        yield
+        return
     Base.metadata.drop_all(bind=engine)
     Base.metadata.create_all(bind=engine)
     yield
@@ -61,3 +60,4 @@ def db_session():
         yield db
     finally:
         db.close()
+
