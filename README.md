@@ -253,4 +253,3 @@ Run selected tests:
 
 ---
 
-If you want, I can also generate a matching **frontend integration README section** (React API calls + auth flow + OTP screens) ready to paste into your frontend repo.
