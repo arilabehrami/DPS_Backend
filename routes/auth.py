@@ -265,6 +265,40 @@ def register_request_otp(
     return {"detail": "Verification code sent to your email"}
 
 
+@router.post("/register", response_model=AuthResponse, status_code=status.HTTP_201_CREATED)
+def register(
+    data: RegisterRequest,
+    db: Session = Depends(get_db),
+):
+    existing_user = get_user_by_email(db, data.email)
+    if existing_user:
+        raise HTTPException(status_code=400, detail="Email already registered")
+
+    workspace_id, role_id = ensure_default_workspace_and_client_role(db)
+    username = data.username or data.email.split("@")[0]
+    full_name = data.full_name or username
+
+    user = User(
+        full_name=full_name,
+        username=username,
+        email=data.email,
+        hashed_password=pwd_context.hash(data.password),
+        workspace_id=workspace_id,
+        role_id=role_id,
+    )
+    db.add(user)
+    try:
+        db.commit()
+    except IntegrityError:
+        db.rollback()
+        raise HTTPException(status_code=400, detail="Email already registered")
+    db.refresh(user)
+
+    user = enforce_single_admin_account(db, user)
+    token = create_access_token(user)
+    return AuthResponse(access_token=token, token=token, user=frontend_user(user))
+
+
 @router.post("/request-otp")
 def request_otp_alias(
     data: RegisterRequest,
