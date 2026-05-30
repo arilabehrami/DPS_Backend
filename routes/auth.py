@@ -203,7 +203,6 @@ def ensure_default_workspace_and_client_role(db: Session) -> tuple[int, int]:
     return workspace.id, role.id
 
 
-@router.post("/register/request-otp")
 def register_request_otp(
     data: RegisterRequest,
     background_tasks: BackgroundTasks,
@@ -266,15 +265,6 @@ def register_request_otp(
     return {"detail": "Verification code sent to your email"}
 
 
-@router.post("/register")
-def register_alias_request_otp(
-    data: RegisterRequest,
-    background_tasks: BackgroundTasks,
-    db: Session = Depends(get_db),
-):
-    return register_request_otp(data, background_tasks, db)
-
-
 @router.post("/request-otp")
 def request_otp_alias(
     data: RegisterRequest,
@@ -284,7 +274,6 @@ def request_otp_alias(
     return register_request_otp(data, background_tasks, db)
 
 
-@router.post("/register/verify-otp", response_model=AuthResponse, status_code=status.HTTP_201_CREATED)
 def register_verify_otp(
     data: RegisterOTPVerifyRequest,
     db: Session = Depends(get_db),
